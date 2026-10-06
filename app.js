@@ -165,28 +165,71 @@ async function api(path, body) {
   return data;
 }
 
+/* ---------- Иконки (линейные, 24×24) ---------- */
+const ICONS = {
+  hand: '<path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8a8 8 0 0 0 16 0v-3a2 2 0 0 0-4 0"/>',
+  passport: '<rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="3.2"/><path d="M8.8 10h6.4M12 6.8c1 1 1 5.4 0 6.4M12 6.8c-1 1-1 5.4 0 6.4M9 17h6"/>',
+  coins: '<circle cx="9" cy="9" r="5.5"/><path d="M14.6 10.2a5.5 5.5 0 1 1-4.4 4.4M9 7v4M7.5 8.5h3"/>',
+  plane: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+  bus: '<rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16M8 18v3M16 18v3M8 14.5h.01M16 14.5h.01"/>',
+  compass: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
+  bed: '<path d="M3 19V6M3 14h18v5M21 14a3 3 0 0 0-3-3h-7v3"/><circle cx="7" cy="11" r="1.6"/>',
+  cup: '<path d="M4 9h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17M8 3c0 1 1 1 1 2s-1 1-1 2M12.5 3c0 1 1 1 1 2s-1 1-1 2"/>',
+  bag: '<path d="M5 8h14l-1 12.5H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
+  chat: '<path d="M21 11.5a8 8 0 0 1-11.6 7.1L4 20l1.1-4.4A8 8 0 1 1 21 11.5z"/><path d="M8.5 11.5h.01M12.5 11.5h.01M16.5 11.5h.01"/>',
+  camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  aid: '<rect x="3" y="5" width="18" height="15" rx="3"/><path d="M9 5V3h6v2M12 9v7M8.5 12.5h7"/>',
+  stamp: '<path d="M7 21h10M5 17h14v-2.5a2 2 0 0 0-2-2h-2.5L13.4 8a2.6 2.6 0 1 0-2.8 0l-1.1 4.5H7a2 2 0 0 0-2 2z"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  flame: '<path d="M12 3c1 3.2 5 5.2 5 10a5 5 0 0 1-10 0c0-2 .9-3.5 2-4.6.2 1.9 1 3 2.2 3.1C11 8.8 10.3 6 12 3z"/>',
+  bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  headphones: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="5" height="7" rx="2"/><rect x="16" y="14" width="5" height="7" rx="2"/>',
+  play: '<path d="M8 5v14l11-7z"/>'
+};
+const LESSON_ICON = { l1: "hand", l2: "passport", l3: "coins", l4: "plane", l5: "bus", l6: "compass", l7: "bed", l8: "cup", l9: "bag", l10: "chat", l11: "camera", l12: "aid" };
+const ic = (name, cls = "ic") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+
 /* ---------- Общие элементы ---------- */
 const app = $("#app");
 function toast(t) { const d = document.createElement("div"); d.className = "toast"; d.textContent = t; document.body.append(d); setTimeout(() => d.remove(), 2400); }
 function topbar() {
   return `<div class="top"><div class="brand">Ступени<span>.</span></div>
-  <div class="stats"><span class="chip" title="Дней подряд">🔥 ${streakNow()}</span><span class="chip" title="Опыт">⚡ ${S.xp}</span></div></div>`;
+  <div class="stats"><span class="chip streak" title="Дней подряд">${ic("flame")} ${streakNow()}</span><span class="chip" title="Опыт">${ic("bolt")} ${S.xp}</span></div></div>`;
 }
+function stampHTML(top, big, bottom, cls = "") { return `<div class="stamp ${cls}"><span>${esc(top)}</span><b>${esc(big)}</b><span>${esc(bottom)}</span></div>`; }
 function setNav(tab) { document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("on", a.dataset.tab === tab)); }
 
 /* ============ Курс ============ */
 function viewCourse() {
   setNav("course"); stopAudio();
   const nx = nextItem();
+  const lessons = ITEMS.filter(x => x.kind === "lesson");
+  const doneL = lessons.filter(isDone).length;
   const g = Math.min(100, Math.round(xpToday() / S.settings.goal * 100));
-  const heroLabel = !nx ? "Курс пройден" : nx.kind === "test" ? `Блок ${nx.bi + 1} · Контрольная` : `Блок ${nx.bi + 1} · Урок ${nx.no}`;
+  const code = !nx ? "FIN" : nx.kind === "test" ? `T${nx.bi + 1}` : `L${String(nx.no).padStart(2, "0")}`;
+  const started = Object.keys(S.done).length > 0;
   let html = topbar() + `<div class="stack">
-  <section class="hero">
-    <span class="eyebrow">${heroLabel}</span>
-    <h1>${nx ? esc(nx.kind === "test" ? nx.title : nx.title) : "Все уроки и контрольные сданы!"}</h1>
-    <div class="small">${nx ? (nx.kind === "test" ? "Проверь, что запомнил за блок. Нужно 70%, чтобы открыть следующий." : esc(nx.goals.join(" · "))) : "Слушай аудио и повторяй фразы, чтобы не забыть."}</div>
-    <div class="goal"><span>Цель дня</span><div class="goalbar"><i style="width:${g}%"></i></div><b>${xpToday()}/${S.settings.goal} XP</b></div>
-    ${nx ? `<button class="btn light wide" data-go="${nx.id}">${Object.keys(S.done).length ? "Продолжить" : "Начать первый урок"}</button>` : `<a class="btn light wide" href="#/audio">К аудио</a>`}
+  <section class="pass">
+    <div class="pass-main">
+      <div class="pass-head"><span>Посадочный талон</span><span class="mono">${code}</span></div>
+      <div class="pass-route">
+        <div><small>Откуда</small><b>RU</b></div>
+        <div class="pass-path">${ic("plane", "ic plane")}</div>
+        <div class="right"><small>Куда</small><b>EN</b></div>
+      </div>
+      <div class="pass-what"><small>${!nx ? "Курс пройден" : nx.kind === "test" ? `Блок ${nx.bi + 1} · Контрольная` : `Блок ${nx.bi + 1} · Урок ${nx.no}`}</small>
+        <h1>${nx ? esc(nx.kind === "test" ? nx.title.replace(/^Контрольная: /, "Контрольная: ") : nx.title) : "Все уроки сданы!"}</h1></div>
+      <div class="pass-meta">
+        <div><small>Уроки</small><b>${doneL}/${lessons.length}</b></div>
+        <div><small>Сегодня</small><b>${xpToday()}/${S.settings.goal} XP</b></div>
+        <div><small>Серия</small><b>${streakNow()} ${plural(streakNow(), "день", "дня", "дней")}</b></div>
+      </div>
+    </div>
+    <div class="pass-stub">
+      <div class="goalbar" title="Цель дня"><i style="width:${g}%"></i></div>
+      ${nx ? `<button class="btn cherry wide" data-go="${nx.id}" type="button">${started ? "Продолжить путь" : "На посадку"}</button>` : `<a class="btn cherry wide" href="#/audio">К аудио</a>`}
+    </div>
   </section>`;
   const due = dueWords().length;
   if (due) html += `<a class="panel row between" href="#/phrases"><span><b>${due}</b> ${plural(due, "фраза ждёт", "фразы ждут", "фраз ждут")} повторения</span><span class="btn sm primary">Повторить</span></a>`;
@@ -194,27 +237,29 @@ function viewCourse() {
   COURSE.forEach((b, bi) => {
     const its = ITEMS.filter(x => x.bi === bi);
     const doneN = its.filter(isDone).length;
-    html += `<section class="unit"><div class="unit-head"><h2><span class="n">Блок ${bi + 1}</span>${esc(b.title)}</h2><span class="small muted">${doneN}/${its.length}</span></div><div class="small muted unit-note">${esc(b.note)}</div>`;
+    html += `<section class="leg"><div class="leg-head"><div><span class="eyebrow">Блок ${bi + 1}</span><h2>${esc(b.title)}</h2><div class="small muted">${esc(b.note)}</div></div><span class="leg-count">${doneN}/${its.length}</span></div><div class="route-list">`;
     its.forEach(it => {
       const i = ITEMS.indexOf(it), open = isOpen(i), done = isDone(it), cur = nx && nx.id === it.id;
+      const st = `${done ? "done" : ""} ${cur ? "current" : ""} ${open ? "" : "locked"}`;
+      const attr = open ? `data-go="${it.id}"` : `data-locked="1"`;
       if (it.kind === "lesson") {
-        html += `<button class="lesson ${done ? "done" : ""} ${cur ? "current" : ""} ${open ? "" : "locked"}" ${open ? `data-go="${it.id}"` : `data-locked="1"`}>
-          <span class="dot">${done ? "✓" : open ? it.no : "🔒"}</span>
-          <span><span class="lno">Урок ${it.no}</span><div class="ttl">${esc(it.title)}</div><div class="sub">${esc(it.goals[0])}</div></span>
-          <span class="score">${done ? S.done[it.id] + "%" : ""}</span></button>`;
+        html += `<button class="stop ${st}" ${attr} type="button">
+          <span class="node">${done ? ic("check") : open ? ic(LESSON_ICON[it.id] || "compass") : ic("lock")}</span>
+          <span class="stop-body"><span class="lno">Урок ${it.no}</span><span class="ttl">${esc(it.title)}</span><span class="sub">${esc(it.goals[0])}</span></span>
+          <span class="score">${done ? S.done[it.id] + "%" : cur ? "сейчас" : ""}</span></button>`;
       } else {
         const sc = S.tests[it.id];
-        html += `<button class="lesson test ${done ? "done" : ""} ${cur ? "current" : ""} ${open ? "" : "locked"}" ${open ? `data-go="${it.id}"` : `data-locked="1"`}>
-          <span class="dot">${done ? "★" : open ? "✎" : "🔒"}</span>
-          <span><span class="lno">Контрольная</span><div class="ttl">${esc(it.title.replace(/^Контрольная: /, ""))}</div><div class="sub">Перевод · предложения · аудирование · письмо</div></span>
-          <span class="score">${sc != null ? sc + "%" : ""}</span></button>`;
+        html += `<button class="stop checkpoint ${st}" ${attr} type="button">
+          <span class="node">${open ? ic("stamp") : ic("lock")}</span>
+          <span class="stop-body"><span class="lno">Контроль</span><span class="ttl">${esc(it.title.replace(/^Контрольная: /, "Контрольная: "))}</span><span class="sub">Перевод · фразы · аудио · письмо</span></span>
+          ${done ? stampHTML("сдано", sc + "%", "блок " + (bi + 1), "mini") : `<span class="score">${sc != null ? sc + "%" : ""}</span>`}</button>`;
       }
     });
-    html += `</section>`;
+    html += `</div></section>`;
   });
   app.innerHTML = html + `</div>`;
   app.querySelectorAll("[data-go]").forEach(b => b.onclick = () => startItem(b.dataset.go));
-  app.querySelectorAll("[data-locked]").forEach(b => b.onclick = () => toast("Сначала пройди предыдущий урок или контрольную"));
+  app.querySelectorAll("[data-locked]").forEach(b => b.onclick = () => toast("Сначала пройди предыдущую остановку"));
   aiStatus().then(ok => { const s = $("#ai-slot"); if (ok && s) s.innerHTML = `<a class="panel row between" href="#/practice"><span><b>Практика с ИИ</b><br><span class="small muted">Свободный разговор и проверка текстов</span></span><span class="btn sm">Открыть</span></a>`; });
 }
 
@@ -313,14 +358,14 @@ const RENDER = {
     if (!L.test) {
       const n = it.steps.length;
       pin.innerHTML = `<div class="intro">
-        <span class="eyebrow">Блок ${it.bi + 1} · Урок ${it.no}</span><h1 class="big-title">${esc(it.title)}</h1>
+        <span class="intro-icon">${ic(LESSON_ICON[it.id] || "compass")}</span><span class="eyebrow">Блок ${it.bi + 1} · Урок ${it.no}</span><h1 class="big-title">${esc(it.title)}</h1>
         <div class="panel"><h3>Цели урока</h3><ul class="goals">${it.goals.map(g => `<li>${esc(g)}</li>`).join("")}</ul></div>
         <div class="row small muted"><span>📖 ${it.phrases.length} ${plural(it.phrases.length, "фраза", "фразы", "фраз")}</span><span>✏️ ${n} ${plural(n, "задание", "задания", "заданий")}</span><span>⏱ ~${Math.max(5, Math.round(n * 0.7))} мин</span></div></div>`;
       footNext(pfin, "Начать урок");
     } else {
       const secs = it.sections.map(sec => `<li><b>${esc(sec.title)}</b> <span class="muted">— ${sec.steps.length} ${plural(sec.steps.length, "задание", "задания", "заданий")}</span></li>`).join("");
       pin.innerHTML = `<div class="intro">
-        <span class="eyebrow">Блок ${it.bi + 1} · Контрольная</span><h1 class="big-title">${esc(it.title)}</h1>
+        <span class="intro-icon cherry">${ic("stamp")}</span><span class="eyebrow">Блок ${it.bi + 1} · Контрольная</span><h1 class="big-title">${esc(it.title)}</h1>
         <div class="panel"><h3>Что будет</h3><ul class="goals">${secs}</ul></div>
         <div class="notice">Подсказок нет, ошибки не повторяются. Чтобы открыть следующий блок, нужно набрать <b>${PASS}%</b>. Пересдавать можно сколько угодно.</div></div>`;
       footNext(pfin, "Начать контрольную");
@@ -578,10 +623,9 @@ function finishLesson() {
   addXP(xp); haptic("success");
   const i = ITEMS.indexOf(it), nx = ITEMS[i + 1];
   player.innerHTML = `<div class="p-body"><div class="p-in result">
-    <span class="eyebrow">Урок ${it.no} · ${first ? "пройден" : "повторён"}</span>
-    <div class="big">${pct}%</div><h1>${esc(it.title)}</h1>
+    ${stampHTML(first ? "пройдено" : "повторено", pct + "%", "урок " + it.no, "big-stamp" + (pct < 70 ? " soft" : ""))}<h1>${esc(it.title)}</h1>
     <div class="muted">${pct >= 90 ? "Превосходно! Почти без ошибок." : pct >= 70 ? "Хороший результат. Ошибки повторили в конце — так они лучше запоминаются." : "Неплохо для начала. Пройди урок ещё раз завтра — станет легче."}</div>
-    <div class="tiles3"><div class="t3"><b>+${xp}</b><span class="small muted">опыта</span></div><div class="t3"><b>${added}</b><span class="small muted">фраз в разговорник</span></div><div class="t3"><b>🔥 ${streakNow()}</b><span class="small muted">дней подряд</span></div></div>
+    <div class="tiles3"><div class="t3"><b>+${xp}</b><span class="small muted">опыта</span></div><div class="t3"><b>${added}</b><span class="small muted">фраз в разговорник</span></div><div class="t3"><b>${streakNow()}</b><span class="small muted">${plural(streakNow(), "день", "дня", "дней")} подряд</span></div></div>
     <div class="panel left"><h3>Итоги урока</h3><ul class="goals done-list">${it.summary.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
     <div class="stack wide-stack">
       ${nx ? `<button class="btn primary wide" id="rnext" type="button">${nx.kind === "test" ? "К контрольной блока" : "Следующий урок: " + esc(nx.title)}</button>` : ""}
@@ -600,8 +644,7 @@ function finishTest() {
   const i = ITEMS.indexOf(it), nx = ITEMS[i + 1];
   const rows = it.sections.map(sec => { const st = L.sec[sec.title] || { ok: 0, n: 0 }; return `<div class="secrow"><span>${esc(sec.title)}</span><span class="bar"><i style="width:${st.n ? st.ok / st.n * 100 : 0}%"></i></span><b>${st.ok}/${st.n}</b></div>`; }).join("");
   player.innerHTML = `<div class="p-body"><div class="p-in result">
-    <span class="eyebrow">Блок ${it.bi + 1} · Контрольная</span>
-    <div class="big ${passed ? "" : "fail"}">${pct}%</div>
+    ${passed ? stampHTML("контроль пройден", pct + "%", "блок " + (it.bi + 1), "big-stamp") : `<span class="eyebrow">Блок ${it.bi + 1} · Контрольная</span><div class="big fail">${pct}%</div>`}
     <h1>${passed ? (nx ? `Блок ${it.bi + 1} пройден!` : "Курс пройден!") : "Пока не хватило"}</h1>
     <div class="muted">${passed ? (nx ? `Открыт блок ${it.bi + 2}: «${esc(nx.block.title)}».` : "Ты прошёл весь курс. Теперь — в путешествие!") : `Нужно ${PASS}%. Повтори уроки блока и попробуй снова — пересдавать можно сколько угодно.`}</div>
     <div class="panel left"><h3>По разделам</h3>${rows}</div>
@@ -625,11 +668,11 @@ function viewAudio() {
     ${TTS ? "" : `<div class="notice warn">Этот браузер не умеет озвучивать текст. Открой приложение в Chrome или Safari.</div>`}`;
   lv.forEach(l => {
     const tr = TRACKS.filter(t => t.level == l);
-    html += `<section class="unit"><div class="unit-head"><h2><span class="n">Уровень ${l}</span>${esc(TRACK_LEVELS[l])}</h2></div><div class="track-list">`;
+    html += `<section class="unit"><div class="unit-head"><div><span class="eyebrow">Уровень ${l}</span><h2>${esc(TRACK_LEVELS[l])}</h2></div></div><div class="track-list">`;
     tr.forEach(t => {
       const words = t.lines.reduce((n, x) => n + x[1].split(" ").length, 0);
       const sec = Math.round(words / 2.3 + t.lines.length * 0.5);
-      html += `<a class="track ${S.audio[t.id] ? "done" : ""}" href="#/audio/${t.id}"><span class="tdot">${S.audio[t.id] ? "✓" : "▶"}</span><span><b>${esc(t.title)}</b><span class="small muted">${t.lines.length} ${plural(t.lines.length, "фраза", "фразы", "фраз")} · ~${sec < 60 ? sec + " сек" : Math.round(sec / 60) + " мин"}</span></span></a>`;
+      html += `<a class="track ${S.audio[t.id] ? "done" : ""}" href="#/audio/${t.id}"><span class="tdot">${S.audio[t.id] ? ic("check") : ic("headphones")}</span><span><b>${esc(t.title)}</b><span class="small muted">${t.lines.length} ${plural(t.lines.length, "фраза", "фразы", "фраз")} · ~${sec < 60 ? sec + " сек" : Math.round(sec / 60) + " мин"}</span></span></a>`;
     });
     html += `</div></section>`;
   });
