@@ -1,5 +1,5 @@
 "use strict";
-/* ============ Ступени — английский для путешествий ============ */
+/* ============ Ступени (English) и Pasitos (Español) ============ */
 
 const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp : null;
 if (tg) { tg.ready(); tg.expand(); }
@@ -13,8 +13,30 @@ const today = () => new Date().toISOString().slice(0, 10);
 const haptic = t => { try { tg && tg.HapticFeedback.notificationOccurred(t); } catch (e) {} };
 function plural(n, one, few, many) { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 10 || b >= 20) ? few : many; }
 
+/* ---------- Язык курса ---------- */
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+let LANG = new URLSearchParams(location.search).get("lang") || lsGet("stupeni.lang");
+if (LANG !== "en" && LANG !== "es") LANG = null;
+if (LANG) lsSet("stupeni.lang", LANG);
+const PACKS = {
+  en: { key: "stupeni.travel.v1", course: window.COURSE, tracks: window.TRACKS, levels: window.TRACK_LEVELS,
+        tts: /^en[-_]/i, ttsPref: /en[-_](US|GB)/i, ttsNames: /Google|Samantha|Natural|Aria|Jenny|Daniel|Karen/i, ttsAlt: /en[-_](GB|US|AU|IE)/i, ttsDefault: "en-US", sr: "en-US",
+        brand: "Ступени", code: "EN", inLang: "по-английски", toLang: "на английский", passHead: "Посадочный талон", fem: false, theme: "#2b3d20",
+        say: { voice: "Hello! This is how I sound. Let's practise English for your next trip.", speed: "This is the new speed.", hello: "Hello, nice to meet you." } },
+  es: { key: "pasitos.es.v1", course: window.COURSE_ES, tracks: window.TRACKS_ES, levels: window.TRACK_LEVELS_ES,
+        tts: /^es[-_]/i, ttsPref: /es[-_](ES|MX|US)/i, ttsNames: /Google|Monica|Mónica|Paulina|Natural|Elvira|Helena|Lucia|Lucía/i, ttsAlt: /es[-_]/i, ttsDefault: "es-ES", sr: "es-ES",
+        brand: "Pasitos", code: "ES", inLang: "по-испански", toLang: "на испанский", passHead: "Mi cuaderno", fem: true, theme: "#f3b6c8",
+        say: { voice: "¡Hola! Así sueno yo. Vamos a aprender español juntas.", speed: "Esta es la nueva velocidad.", hello: "Hola, encantada de conocerte." } }
+};
+const P = PACKS[LANG || "en"];
+const CRS = P.course, TRK = P.tracks, TLV = P.levels;
+const G = (m, f) => P.fem ? f : m;
+document.documentElement.dataset.lang = LANG || "en";
+{ const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = P.theme; }
+
 /* ---------- Состояние ---------- */
-const KEY = "stupeni.travel.v1";
+const KEY = P.key;
 const DEFAULT = {
   done: {}, tests: {}, audio: {},
   xp: 0, xpDay: { date: "", xp: 0 }, streak: { last: "", count: 0 },
@@ -50,7 +72,7 @@ if (tg) tg.onEvent("themeChanged", applyTheme);
 const PASS = 70;
 const ITEMS = [];
 let lessonNo = 0;
-COURSE.forEach((b, bi) => {
+CRS.forEach((b, bi) => {
   b.lessons.forEach((l, li) => ITEMS.push({ ...l, kind: "lesson", block: b, bi, li, no: ++lessonNo }));
   ITEMS.push({ ...b.test, kind: "test", block: b, bi });
 });
@@ -69,8 +91,10 @@ function norm(s) {
   s = String(s).toLowerCase().replace(/[’‘`´]/g, "'").trim();
   s = s.replace(/\b(do|does|did|is|are|was|were|has|have|ca|wo|should|could|would)nt\b/g, "$1n't").replace(/\bim\b/g, "i'm").replace(/\bill\b(?= (take|have|call|go|be))/g, "i'll");
   CONTR.forEach(([r, v]) => { s = s.replace(r, v); });
-  return s.replace(/[.,!?;:"«»()—–\-…]/g, " ").replace(/\s+/g, " ").trim();
+  return s.replace(/[.,!?¿¡;:"«»()—–\-…]/g, " ").replace(/\s+/g, " ").trim();
 }
+const deacc = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const fold = s => deacc(norm(s));
 function lev(a, b) {
   const m = a.length, n = b.length; if (Math.abs(m - n) > 2) return 3;
   let p = Array.from({ length: n + 1 }, (_, i) => i);
@@ -80,39 +104,45 @@ function lev(a, b) {
 function checkText(input, answers) {
   const x = norm(input); if (!x) return { ok: false };
   for (const a of answers) { const y = norm(a); if (x === y || x.replace(/ /g, "") === y.replace(/ /g, "")) return { ok: true }; }
-  const xw = x.split(" ");
+  const xf = deacc(x);
+  for (const a of answers) { const y = deacc(norm(a)); if (xf === y || xf.replace(/ /g, "") === y.replace(/ /g, "")) return { ok: true, typo: true, accent: true }; }
+  const xw = xf.split(" ");
   for (const a of answers) {
-    const yw = norm(a).split(" ");
+    const yw = deacc(norm(a)).split(" ");
     if (yw.length !== xw.length) continue;
     const diff = yw.map((w, i) => [w, xw[i]]).filter(([w, v]) => w !== v);
-    if (diff.length === 1 && diff[0][0].length >= 4 && lev(diff[0][0], diff[0][1]) === 1) return { ok: true, typo: true };
+    if (diff.length !== 1) continue;
+    const [w, v] = diff[0];
+    // В испанском окончание — это грамматика (gusta / gustan), поэтому опечатку прощаем только в середине длинного слова
+    const typoOk = LANG === "es" ? (w.length >= 6 && w.slice(-2) === v.slice(-2) && w[0] === v[0]) : w.length >= 4;
+    if (typoOk && lev(w, v) === 1) return { ok: true, typo: true };
   }
   return { ok: false };
 }
-function speechScore(heard, target) { const t = norm(target).split(" "), h = new Set(norm(heard).split(" ")); return t.filter(w => h.has(w)).length / t.length; }
+function speechScore(heard, target) { const t = fold(target).split(" "), h = new Set(fold(heard).split(" ")); return t.filter(w => h.has(w)).length / t.length; }
 const gapAlts = g => g.split("|");
 
 /* ---------- Озвучка ---------- */
 const TTS = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 let voices = [];
-function loadVoices() { if (TTS) voices = speechSynthesis.getVoices().filter(v => /^en[-_]/i.test(v.lang)); }
+function loadVoices() { if (TTS) voices = speechSynthesis.getVoices().filter(v => P.tts.test(v.lang)); }
 if (TTS) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
 function mainVoice() {
   if (!voices.length) loadVoices();
   return voices.find(v => v.name === S.settings.voice)
-    || voices.find(v => /en[-_](US|GB)/i.test(v.lang) && /Google|Samantha|Natural|Aria|Jenny|Daniel|Karen/i.test(v.name))
-    || voices.find(v => /en[-_](US|GB)/i.test(v.lang)) || voices[0] || null;
+    || voices.find(v => P.ttsPref.test(v.lang) && P.ttsNames.test(v.name))
+    || voices.find(v => P.ttsPref.test(v.lang)) || voices[0] || null;
 }
 function secondVoice() {
   const m = mainVoice(); if (!m) return null;
-  return voices.find(v => v !== m && /en[-_](GB|US|AU)/i.test(v.lang) && /Daniel|Google UK|Male|Arthur|Guy|Ryan|Alex|Fred/i.test(v.name))
-    || voices.find(v => v !== m && /en[-_](GB|US|AU|IE)/i.test(v.lang)) || null;
+  return (LANG !== "es" && voices.find(v => v !== m && /en[-_](GB|US|AU)/i.test(v.lang) && /Daniel|Google UK|Male|Arthur|Guy|Ryan|Alex|Fred/i.test(v.name)))
+    || voices.find(v => v !== m && P.ttsAlt.test(v.lang)) || null;
 }
 function utter(text, who, rate) {
   const u = new SpeechSynthesisUtterance(text);
   let v = mainVoice();
   if (who === "B") { const v2 = secondVoice(); if (v2) v = v2; else u.pitch = 0.75; }
-  if (v) { u.voice = v; u.lang = v.lang; } else u.lang = "en-US";
+  if (v) { u.voice = v; u.lang = v.lang; } else u.lang = P.ttsDefault;
   u.rate = rate || S.settings.rate;
   return u;
 }
@@ -140,7 +170,7 @@ function playLines(lines, opt = {}) {
 }
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 function listenOnce(onPart, onEnd) {
-  const r = new SR(); r.lang = "en-US"; r.interimResults = true; r.maxAlternatives = 3;
+  const r = new SR(); r.lang = P.sr; r.interimResults = true; r.maxAlternatives = 3;
   let final = "";
   r.onresult = e => { let t = ""; for (const res of e.results) t += res[0].transcript; final = t; onPart(t); };
   r.onerror = e => onEnd(final, e.error);
@@ -185,7 +215,18 @@ const ICONS = {
   flame: '<path d="M12 3c1 3.2 5 5.2 5 10a5 5 0 0 1-10 0c0-2 .9-3.5 2-4.6.2 1.9 1 3 2.2 3.1C11 8.8 10.3 6 12 3z"/>',
   bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
   headphones: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="5" height="7" rx="2"/><rect x="16" y="14" width="5" height="7" rx="2"/>',
-  play: '<path d="M8 5v14l11-7z"/>'
+  play: '<path d="M8 5v14l11-7z"/>',
+  heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+  map: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+  book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M8 7h7"/>',
+  pencil: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
+  home: '<path d="M4 11 12 4l8 7v9H4z"/><path d="M10 20v-5h4v5"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  cat: '<path d="M5 20v-9L4 4l5 4h6l5-4-1 7v9z"/><path d="M9 13h.01M15 13h.01M11 16h2"/>',
+  paw: '<circle cx="6.5" cy="10.5" r="1.8"/><circle cx="10.5" cy="6.5" r="1.8"/><circle cx="15.5" cy="6.8" r="1.8"/><circle cx="18.5" cy="11" r="1.8"/><path d="M12 12c-3 0-6 4.5-4.5 6.5 1.3 1.7 3-.3 4.5-.3s3.2 2 4.5.3C18 16.5 15 12 12 12z"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z"/>'
 };
 const LESSON_ICON = { l1: "hand", l2: "passport", l3: "coins", l4: "plane", l5: "bus", l6: "compass", l7: "bed", l8: "cup", l9: "bag", l10: "chat", l11: "camera", l12: "aid" };
 const ic = (name, cls = "ic") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
@@ -194,8 +235,25 @@ const ic = (name, cls = "ic") => `<svg class="${cls}" viewBox="0 0 24 24" fill="
 const app = $("#app");
 function toast(t) { const d = document.createElement("div"); d.className = "toast"; d.textContent = t; document.body.append(d); setTimeout(() => d.remove(), 2400); }
 function topbar() {
-  return `<div class="top"><div class="brand">Ступени<span>.</span></div>
+  return `<div class="top"><div class="brand">${P.brand}<span>.</span></div>
   <div class="stats"><span class="chip streak" title="Дней подряд">${ic("flame")} ${streakNow()}</span><span class="chip" title="Опыт">${ic("bolt")} ${S.xp}</span></div></div>`;
+}
+function catArt(mood = "happy", cls = "") {
+  if (LANG !== "es") return "";
+  const eyes = mood === "sleep" ? '<path d="M44 55q5 4 10 0M66 55q5 4 10 0"/>'
+    : mood === "open" ? '<circle cx="49" cy="53" r="3.4" class="cat-dot"/><circle cx="71" cy="53" r="3.4" class="cat-dot"/><circle cx="50.2" cy="51.8" r="1" class="cat-shine"/><circle cx="72.2" cy="51.8" r="1" class="cat-shine"/>'
+    : '<path d="M44 56q5-6 10 0M66 56q5-6 10 0"/>';
+  return `<svg class="cat ${cls}" viewBox="0 0 120 120" aria-hidden="true">
+    <path class="cat-tail-o" d="M86 106c22 4 30-10 22-27"/><path class="cat-tail" d="M86 106c22 4 30-10 22-27"/>
+    <path class="cat-fur" d="M33 113c-6-26 4-44 27-44s33 18 27 44z"/>
+    <path class="cat-fur" d="M30 57 33 20l20 16q7-2 14 0l20-16 3 37q0 22-30 22T30 57z"/>
+    <path class="cat-ear" d="M37 30l2 12 9-6z"/><path class="cat-ear" d="M83 30l-2 12-9-6z"/>
+    <circle class="cat-cheek" cx="43" cy="64" r="4.5"/><circle class="cat-cheek" cx="77" cy="64" r="4.5"/>
+    <g class="cat-line">${eyes}<path d="M60 64v2.5M60 66.5q-4 4-8 1M60 66.5q4 4 8 1"/><path d="M37 61H25M37 65l-11 3M83 61h12M83 65l11 3"/></g>
+    <path class="cat-nose" d="M57 61h6l-3 3.5z"/>
+    <path class="cat-fur" d="M47 113q0-9 6.5-9t6.5 9M60 113q0-9 6.5-9t6.5 9"/>
+    ${mood === "sleep" ? '<text x="88" y="30" class="cat-z">z</text><text x="98" y="18" class="cat-z small">z</text>' : ""}
+  </svg>`;
 }
 function stampHTML(top, big, bottom, cls = "") { return `<div class="stamp ${cls}"><span>${esc(top)}</span><b>${esc(big)}</b><span>${esc(bottom)}</span></div>`; }
 function setNav(tab) { document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("on", a.dataset.tab === tab)); }
@@ -212,13 +270,13 @@ function viewCourse() {
   let html = topbar() + `<div class="stack">
   <section class="pass">
     <div class="pass-main">
-      <div class="pass-head"><span>Посадочный талон</span><span class="mono">${code}</span></div>
+      <div class="pass-head"><span>${P.passHead}</span><span class="mono">${code}</span></div>
       <div class="pass-route">
         <div><small>Откуда</small><b>RU</b></div>
-        <div class="pass-path">${ic("plane", "ic plane")}</div>
-        <div class="right"><small>Куда</small><b>EN</b></div>
+        <div class="pass-path">${LANG === "es" ? ic("paw", "ic plane paw") : ic("plane", "ic plane")}</div>
+        <div class="right"><small>Куда</small><b>${P.code}</b></div>
       </div>
-      <div class="pass-what"><small>${!nx ? "Курс пройден" : nx.kind === "test" ? `Блок ${nx.bi + 1} · Контрольная` : `Блок ${nx.bi + 1} · Урок ${nx.no}`}</small>
+      <div class="pass-what">${catArt(nx ? "open" : "happy", "cat-pass")}<small>${!nx ? "Курс пройден" : nx.kind === "test" ? `Блок ${nx.bi + 1} · Контрольная` : `Блок ${nx.bi + 1} · Урок ${nx.no}`}</small>
         <h1>${nx ? esc(nx.kind === "test" ? nx.title.replace(/^Контрольная: /, "Контрольная: ") : nx.title) : "Все уроки сданы!"}</h1></div>
       <div class="pass-meta">
         <div><small>Уроки</small><b>${doneL}/${lessons.length}</b></div>
@@ -228,13 +286,13 @@ function viewCourse() {
     </div>
     <div class="pass-stub">
       <div class="goalbar" title="Цель дня"><i style="width:${g}%"></i></div>
-      ${nx ? `<button class="btn cherry wide" data-go="${nx.id}" type="button">${started ? "Продолжить путь" : "На посадку"}</button>` : `<a class="btn cherry wide" href="#/audio">К аудио</a>`}
+      ${nx ? `<button class="btn cherry wide" data-go="${nx.id}" type="button">${LANG === "es" ? (started ? "¡Seguimos!" : "¡Empezamos!") : (started ? "Продолжить путь" : "На посадку")}</button>` : `<a class="btn cherry wide" href="#/audio">К аудио</a>`}
     </div>
   </section>`;
   const due = dueWords().length;
   if (due) html += `<a class="panel row between" href="#/phrases"><span><b>${due}</b> ${plural(due, "фраза ждёт", "фразы ждут", "фраз ждут")} повторения</span><span class="btn sm primary">Повторить</span></a>`;
   html += `<div id="ai-slot"></div>`;
-  COURSE.forEach((b, bi) => {
+  CRS.forEach((b, bi) => {
     const its = ITEMS.filter(x => x.bi === bi);
     const doneN = its.filter(isDone).length;
     html += `<section class="leg"><div class="leg-head"><div><span class="eyebrow">Блок ${bi + 1}</span><h2>${esc(b.title)}</h2><div class="small muted">${esc(b.note)}</div></div><span class="leg-count">${doneN}/${its.length}</span></div><div class="route-list">`;
@@ -244,7 +302,7 @@ function viewCourse() {
       const attr = open ? `data-go="${it.id}"` : `data-locked="1"`;
       if (it.kind === "lesson") {
         html += `<button class="stop ${st}" ${attr} type="button">
-          <span class="node">${done ? ic("check") : open ? ic(LESSON_ICON[it.id] || "compass") : ic("lock")}</span>
+          <span class="node">${done ? ic(LANG === "es" ? "paw" : "check") : open ? ic(it.icon || LESSON_ICON[it.id] || "compass") : ic("lock")}</span>
           <span class="stop-body"><span class="lno">Урок ${it.no}</span><span class="ttl">${esc(it.title)}</span><span class="sub">${esc(it.goals[0])}</span></span>
           <span class="score">${done ? S.done[it.id] + "%" : cur ? "сейчас" : ""}</span></button>`;
       } else {
@@ -260,7 +318,7 @@ function viewCourse() {
   app.innerHTML = html + `</div>`;
   app.querySelectorAll("[data-go]").forEach(b => b.onclick = () => startItem(b.dataset.go));
   app.querySelectorAll("[data-locked]").forEach(b => b.onclick = () => toast("Сначала пройди предыдущую остановку"));
-  aiStatus().then(ok => { const s = $("#ai-slot"); if (ok && s) s.innerHTML = `<a class="panel row between" href="#/practice"><span><b>Практика с ИИ</b><br><span class="small muted">Свободный разговор и проверка текстов</span></span><span class="btn sm">Открыть</span></a>`; });
+  if (LANG === "en") aiStatus().then(ok => { const s = $("#ai-slot"); if (ok && s) s.innerHTML = `<a class="panel row between" href="#/practice"><span><b>Практика с ИИ</b><br><span class="small muted">Свободный разговор и проверка текстов</span></span><span class="btn sm">Открыть</span></a>`; });
 }
 
 /* ============ Плеер урока и контрольной ============ */
@@ -315,7 +373,7 @@ function footCheck(pfin, getResult, enabled = false) {
   return v => { chk.disabled = !v; };
 }
 function footNext(pfin, label = "Дальше") { pfin.innerHTML = `<button class="btn primary wide" id="got" type="button">${label}</button>`; $("#got").onclick = next; }
-function verdict({ ok, typo, correct, why, noRequeue, extraHTML }) {
+function verdict({ ok, typo, accent, correct, why, noRequeue, extraHTML }) {
   const s = L.queue[L.pos];
   const foot = $("#pfoot"), pfin = $("#pfin");
   foot.classList.add(ok ? "ok" : "bad");
@@ -327,7 +385,7 @@ function verdict({ ok, typo, correct, why, noRequeue, extraHTML }) {
   }
   const requeue = !ok && !noRequeue && !L.test && first;
   if (requeue) { L.retried.add(s._i); L.queue.push(s); }
-  pfin.innerHTML = `<div class="verdict">${ok ? (typo ? "Верно, но есть опечатка" : pick(["Отлично!", "Верно!", "Так держать!", "Супер!"])) : "Не совсем"}</div>
+  pfin.innerHTML = `<div class="verdict">${ok ? (accent ? "Верно! Только проверь ударения" : typo ? "Верно, но есть опечатка" : pick(LANG === "es" ? ["¡Muy bien!", "¡Perfecto!", "¡Genial!", "¡Eso es!"] : ["Отлично!", "Верно!", "Так держать!", "Супер!"])) : "Не совсем"}</div>
     ${correct && (!ok || typo) ? `<div class="answer">Правильно: <b>${esc(correct)}</b></div>` : ""}
     ${why ? `<div class="small">${esc(why)}</div>` : ""}${extraHTML || ""}
     ${requeue ? `<div class="small muted">Это задание повторится в конце урока.</div>` : ""}
@@ -358,8 +416,8 @@ const RENDER = {
     if (!L.test) {
       const n = it.steps.length;
       pin.innerHTML = `<div class="intro">
-        <span class="intro-icon">${ic(LESSON_ICON[it.id] || "compass")}</span><span class="eyebrow">Блок ${it.bi + 1} · Урок ${it.no}</span><h1 class="big-title">${esc(it.title)}</h1>
-        <div class="panel"><h3>Цели урока</h3><ul class="goals">${it.goals.map(g => `<li>${esc(g)}</li>`).join("")}</ul></div>
+        <span class="intro-icon">${ic(it.icon || LESSON_ICON[it.id] || "compass")}</span><span class="eyebrow">Блок ${it.bi + 1} · Урок ${it.no}</span><h1 class="big-title">${esc(it.title)}</h1>
+        <div class="panel peek-wrap">${catArt("open", "cat-peek")}<h3>Цели урока</h3><ul class="goals">${it.goals.map(g => `<li>${esc(g)}</li>`).join("")}</ul></div>
         <div class="row small muted"><span>📖 ${it.phrases.length} ${plural(it.phrases.length, "фраза", "фразы", "фраз")}</span><span>✏️ ${n} ${plural(n, "задание", "задания", "заданий")}</span><span>⏱ ~${Math.max(5, Math.round(n * 0.7))} мин</span></div></div>`;
       footNext(pfin, "Начать урок");
     } else {
@@ -393,7 +451,7 @@ const RENDER = {
   },
   tip(s, pin, pfin) {
     const html = s.html.replace(/<table/g, '<div class="tablewrap"><table').replace(/<\/table>/g, "</table></div>");
-    pin.innerHTML = `<span class="qlabel">Азы</span><h1>${esc(s.title)}</h1><div class="theory">${html}</div>`;
+    pin.innerHTML = `<span class="qlabel">Азы</span><h1>${esc(s.title)}</h1><div class="theory peek-wrap">${catArt("happy", "cat-peek")}${html}</div>`;
     footNext(pfin, "Понятно");
   },
   pick(s, pin, pfin) {
@@ -438,9 +496,9 @@ const RENDER = {
       ${s.hint ? `<div class="small muted">Подсказка: первая буква уже в поле.</div>` : ""}`;
     const inputs = [...pin.querySelectorAll(".inline-input")];
     const en = footCheck(pfin, () => {
-      let ok = true, typo = false;
-      inputs.forEach((inp, k) => { const r = checkText(inp.value, gapAlts(gaps[k])); if (!r.ok) ok = false; if (r.typo) typo = true; inp.classList.add(r.ok ? "right" : "wrong"); });
-      return { ok, typo, correct: fullSentence(s.text) };
+      let ok = true, typo = false, accent = false;
+      inputs.forEach((inp, k) => { const r = checkText(inp.value, gapAlts(gaps[k])); if (!r.ok) ok = false; if (r.typo) typo = true; if (r.accent) accent = true; inp.classList.add(r.ok ? "right" : "wrong"); });
+      return { ok, typo, accent, correct: fullSentence(s.text) };
     });
     inputs.forEach((inp, k) => {
       inp.oninput = () => en(inputs.every(x => x.value.trim()));
@@ -465,8 +523,8 @@ const RENDER = {
     draw();
   },
   translate(s, pin, pfin) {
-    pin.innerHTML = `<span class="qlabel">Переведи на английский</span><div class="prompt">${esc(s.ru)}</div>
-      <textarea class="field" id="ti" rows="3" placeholder="Напиши по-английски" autocomplete="off" autocapitalize="sentences" autocorrect="off" spellcheck="false"></textarea>`;
+    pin.innerHTML = `<span class="qlabel">Переведи ${P.toLang}</span><div class="prompt">${esc(s.ru)}</div>
+      <textarea class="field" id="ti" rows="3" placeholder="Напиши ${P.inLang}" autocomplete="off" autocapitalize="sentences" autocorrect="off" spellcheck="false"></textarea>`;
     const ti = $("#ti");
     const en = footCheck(pfin, () => ({ ...checkText(ti.value, s.a), correct: cap(s.a[0]) }));
     ti.oninput = () => en(ti.value.trim().length > 0);
@@ -475,7 +533,7 @@ const RENDER = {
   dictation(s, pin, pfin) {
     pin.innerHTML = `<span class="qlabel">Послушай и запиши</span>
       <div class="listen-box"><button class="bigplay" id="pl" type="button" aria-label="Слушать">🔊</button><button class="slowplay" id="pls" type="button" aria-label="Медленно">🐢</button></div>
-      <textarea class="field" id="li" rows="2" placeholder="Что ты услышал?" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>`;
+      <textarea class="field" id="li" rows="2" placeholder="Что ${G("ты услышал", "ты услышала")}?" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>`;
     $("#pl").onclick = () => speak(s.en); $("#pls").onclick = () => speak(s.en, true);
     const li = $("#li");
     const en = footCheck(pfin, () => ({ ...checkText(li.value, s.a || [s.en]), correct: `${s.en} — ${s.ru}` }));
@@ -506,8 +564,8 @@ const RENDER = {
     pin.innerHTML = `<span class="qlabel">Скажи вслух</span><div class="muted center">${esc(s.ru)}</div>
       <div class="say">${esc(s.en)} ${sayBtn(s.en)}</div>
       ${SR ? `<button class="mic" id="mic" type="button" aria-label="Говорить">🎙</button><div class="heard" id="heard">Нажми на микрофон и произнеси фразу</div>`
-           : `<div class="notice">Послушай и повтори фразу вслух 2–3 раза. Распознавание речи работает в Chrome, здесь проверь себя сам.</div>`}`;
-    if (!SR) { pfin.innerHTML = `<button class="btn primary wide" id="got" type="button">Я произнёс</button>`; $("#got").onclick = () => { L.firstTry++; L.xp += 1; next(); }; return; }
+           : `<div class="notice">Послушай и повтори фразу вслух 2–3 раза. Распознавание речи работает в Chrome, здесь проверь себя ${G("сам", "сама")}.</div>`}`;
+    if (!SR) { pfin.innerHTML = `<button class="btn primary wide" id="got" type="button">${G("Я произнёс", "Я произнесла")}</button>`; $("#got").onclick = () => { L.firstTry++; L.xp += 1; next(); }; return; }
     pfin.innerHTML = `<button class="btn ghost wide" id="skip" type="button">Не могу говорить сейчас</button>`;
     $("#skip").onclick = () => { L.graded--; next(); };
     let rec = null, tries = 0;
@@ -549,7 +607,7 @@ const RENDER = {
   roleplay(s, pin, pfin) {
     pin.innerHTML = `<span class="qlabel">Разговор</span><div class="prompt small-prompt">${esc(s.title)}</div>
       <div class="chat" id="rchat"></div><div id="rtask"></div>`;
-    pfin.innerHTML = `<div class="small muted center">Отвечай по-английски: пиши${SR ? " или говори" : ""}. Подсказка — если застрял.</div>`;
+    pfin.innerHTML = `<div class="small muted center">Отвечай ${P.inLang}: пиши${SR ? " или говори" : ""}. Подсказка — если застрял.</div>`;
     const chat = $("#rchat"), task = $("#rtask");
     let j = 0, tries = 0, fails = 0;
     const addBot = l => { chat.insertAdjacentHTML("beforeend", `<div class="msg bot"><div class="bubble">${esc(l.en)}</div><div class="tools">${sayBtn(l.en, "btn ghost sm")}<button class="btn ghost sm" type="button" data-tr>Перевод</button></div><div class="ru" hidden>${esc(l.ru)}</div></div>`); const m = chat.lastElementChild; m.querySelector("[data-tr]").onclick = e => { const r = m.querySelector(".ru"); r.hidden = !r.hidden; e.target.textContent = r.hidden ? "Перевод" : "Скрыть"; }; };
@@ -559,11 +617,11 @@ const RENDER = {
       const bots = [];
       while (j < s.lines.length && s.lines[j].s === "them") { addBot(s.lines[j]); bots.push(["A", s.lines[j].en]); j++; }
       if (bots.length && S.settings.autoSpeak) playLines(bots);
-      if (j >= s.lines.length) { task.innerHTML = ""; scrollEnd(); return verdict({ ok: fails <= 1, noRequeue: true, why: fails ? `Подсказка понадобилась ${fails} ${plural(fails, "раз", "раза", "раз")}. Пройди разговор ещё раз позже.` : "Ты справился с разговором!" }); }
+      if (j >= s.lines.length) { task.innerHTML = ""; scrollEnd(); return verdict({ ok: fails <= 1, noRequeue: true, why: fails ? `Подсказка понадобилась ${fails} ${plural(fails, "раз", "раза", "раз")}. Пройди разговор ещё раз позже.` : G("Ты справился с разговором!", "Ты справилась с разговором!") }); }
       const line = s.lines[j];
       task.innerHTML = `<div class="taskcard"><div class="eyebrow">Твоя очередь</div><div class="todo">${esc(line.ru)}</div>
         <div class="composer-in">${SR ? `<button class="iconbtn" id="rmic" type="button" aria-label="Сказать голосом">🎙</button>` : ""}
-        <textarea class="field" id="rin" rows="1" data-own-enter="1" placeholder="Ответь по-английски…" autocomplete="off" autocapitalize="sentences" autocorrect="off" spellcheck="false"></textarea>
+        <textarea class="field" id="rin" rows="1" data-own-enter="1" placeholder="Ответь ${P.inLang}…" autocomplete="off" autocapitalize="sentences" autocorrect="off" spellcheck="false"></textarea>
         <button class="iconbtn send" id="rsend" type="button" aria-label="Ответить">➤</button></div>
         <div class="row between"><span class="small" id="rmsg"></span><button class="btn ghost sm" id="rhint" type="button">Подсказка</button></div></div>`;
       const rin = $("#rin"), rmsg = $("#rmsg");
@@ -581,7 +639,7 @@ const RENDER = {
       setTimeout(() => { rin.focus({ preventScroll: true }); scrollEnd(); }, 80);
       function send() {
         const t = rin.value.trim(); if (!t) return;
-        const ok = new RegExp(line.re).test(norm(t));
+        const ok = new RegExp(line.re).test(fold(t));
         if (ok) { addMe(t); j++; tries = 0; advance(); scrollEnd(); return; }
         tries++;
         if (tries === 1) { rmsg.innerHTML = `Не совсем. Попробуй так: <b>${esc(line.say)}</b>`; haptic("error"); return; }
@@ -594,12 +652,12 @@ const RENDER = {
     pin.innerHTML = `<span class="qlabel">Напиши сам</span><div class="prompt small-prompt">${esc(s.task)}</div>
       <div class="small muted">Минимум ${s.min} ${plural(s.min, "слово", "слова", "слов")}. Что должно быть в тексте:</div>
       <ul class="checklist" id="cl">${s.need.map((n, i) => `<li data-i="${i}">${esc(n.label)}</li>`).join("")}</ul>
-      <textarea class="field" id="wt" rows="6" placeholder="Пиши по-английски…" autocomplete="off" autocapitalize="sentences" autocorrect="off" spellcheck="false"></textarea>
+      <textarea class="field" id="wt" rows="6" placeholder="Пиши ${P.inLang}…" autocomplete="off" autocapitalize="sentences" autocorrect="off" spellcheck="false"></textarea>
       <div class="small muted" id="wc">0 слов</div><div id="wres"></div>`;
     const wt = $("#wt");
     const words = () => wt.value.trim() ? wt.value.trim().split(/\s+/).length : 0;
     const en = footCheck(pfin, () => {
-      const x = norm(wt.value);
+      const x = fold(wt.value);
       const met = s.need.map(n => new RegExp(n.re).test(x));
       pin.querySelectorAll("#cl li").forEach((li, i) => li.classList.add(met[i] ? "met" : "miss"));
       const enough = words() >= s.min;
@@ -623,7 +681,7 @@ function finishLesson() {
   addXP(xp); haptic("success");
   const i = ITEMS.indexOf(it), nx = ITEMS[i + 1];
   player.innerHTML = `<div class="p-body"><div class="p-in result">
-    ${stampHTML(first ? "пройдено" : "повторено", pct + "%", "урок " + it.no, "big-stamp" + (pct < 70 ? " soft" : ""))}<h1>${esc(it.title)}</h1>
+    <div class="result-art">${catArt(pct >= 70 ? "happy" : "open", "cat-result")}${stampHTML(LANG === "es" ? (pct >= 70 ? "¡muy bien!" : "¡sigue así!") : (first ? "пройдено" : "повторено"), pct + "%", (LANG === "es" ? "lección " : "урок ") + it.no, "big-stamp" + (pct < 70 ? " soft" : ""))}</div><h1>${esc(it.title)}</h1>
     <div class="muted">${pct >= 90 ? "Превосходно! Почти без ошибок." : pct >= 70 ? "Хороший результат. Ошибки повторили в конце — так они лучше запоминаются." : "Неплохо для начала. Пройди урок ещё раз завтра — станет легче."}</div>
     <div class="tiles3"><div class="t3"><b>+${xp}</b><span class="small muted">опыта</span></div><div class="t3"><b>${added}</b><span class="small muted">фраз в разговорник</span></div><div class="t3"><b>${streakNow()}</b><span class="small muted">${plural(streakNow(), "день", "дня", "дней")} подряд</span></div></div>
     <div class="panel left"><h3>Итоги урока</h3><ul class="goals done-list">${it.summary.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
@@ -644,7 +702,7 @@ function finishTest() {
   const i = ITEMS.indexOf(it), nx = ITEMS[i + 1];
   const rows = it.sections.map(sec => { const st = L.sec[sec.title] || { ok: 0, n: 0 }; return `<div class="secrow"><span>${esc(sec.title)}</span><span class="bar"><i style="width:${st.n ? st.ok / st.n * 100 : 0}%"></i></span><b>${st.ok}/${st.n}</b></div>`; }).join("");
   player.innerHTML = `<div class="p-body"><div class="p-in result">
-    ${passed ? stampHTML("контроль пройден", pct + "%", "блок " + (it.bi + 1), "big-stamp") : `<span class="eyebrow">Блок ${it.bi + 1} · Контрольная</span><div class="big fail">${pct}%</div>`}
+    ${passed ? `<div class="result-art">${catArt("happy", "cat-result")}${stampHTML(LANG === "es" ? "¡aprobado!" : "контроль пройден", pct + "%", "блок " + (it.bi + 1), "big-stamp")}</div>` : `${catArt("sleep", "cat-result")}<span class="eyebrow">Блок ${it.bi + 1} · Контрольная</span><div class="big fail">${pct}%</div>`}
     <h1>${passed ? (nx ? `Блок ${it.bi + 1} пройден!` : "Курс пройден!") : "Пока не хватило"}</h1>
     <div class="muted">${passed ? (nx ? `Открыт блок ${it.bi + 2}: «${esc(nx.block.title)}».` : "Ты прошёл весь курс. Теперь — в путешествие!") : `Нужно ${PASS}%. Повтори уроки блока и попробуй снова — пересдавать можно сколько угодно.`}</div>
     <div class="panel left"><h3>По разделам</h3>${rows}</div>
@@ -661,14 +719,14 @@ function finishTest() {
 /* ============ Аудио ============ */
 function viewAudio() {
   setNav("audio"); stopAudio();
-  const lv = Object.keys(TRACK_LEVELS);
-  const doneN = TRACKS.filter(t => S.audio[t.id]).length;
+  const lv = Object.keys(TLV);
+  const doneN = TRK.filter(t => S.audio[t.id]).length;
   let html = topbar() + `<div class="stack"><h1>Аудио</h1>
-    <div class="muted">Слушай, как звучит живая речь. Начинай с коротких фраз и переходи к длинным историям. ${doneN}/${TRACKS.length} прослушано.</div>
+    <div class="muted">Слушай, как звучит живая речь. Начинай с коротких фраз и переходи к длинным историям. ${doneN}/${TRK.length} прослушано.</div>
     ${TTS ? "" : `<div class="notice warn">Этот браузер не умеет озвучивать текст. Открой приложение в Chrome или Safari.</div>`}`;
   lv.forEach(l => {
-    const tr = TRACKS.filter(t => t.level == l);
-    html += `<section class="unit"><div class="unit-head"><div><span class="eyebrow">Уровень ${l}</span><h2>${esc(TRACK_LEVELS[l])}</h2></div></div><div class="track-list">`;
+    const tr = TRK.filter(t => t.level == l);
+    html += `<section class="unit"><div class="unit-head"><div><span class="eyebrow">Уровень ${l}</span><h2>${esc(TLV[l])}</h2></div></div><div class="track-list">`;
     tr.forEach(t => {
       const words = t.lines.reduce((n, x) => n + x[1].split(" ").length, 0);
       const sec = Math.round(words / 2.3 + t.lines.length * 0.5);
@@ -681,11 +739,11 @@ function viewAudio() {
 const AV = { showText: true, showRu: false, repeat: false, rate: 1 };
 function viewTrack(id) {
   setNav("audio"); stopAudio();
-  const t = TRACKS.find(x => x.id === id); if (!t) return (location.hash = "#/audio");
-  const idx = TRACKS.indexOf(t), nx = TRACKS[idx + 1];
+  const t = TRK.find(x => x.id === id); if (!t) return (location.hash = "#/audio");
+  const idx = TRK.indexOf(t), nx = TRK[idx + 1];
   app.innerHTML = topbar() + `<div class="stack">
     <a class="btn ghost back" href="#/audio">← Аудио</a>
-    <span class="eyebrow">Уровень ${t.level} · ${esc(TRACK_LEVELS[t.level])}</span><h1>${esc(t.title)}</h1>
+    <span class="eyebrow">Уровень ${t.level} · ${esc(TLV[t.level])}</span><h1>${esc(t.title)}</h1>
     <div class="player-bar">
       <button class="bigplay" id="tp" type="button" aria-label="Слушать">▶</button>
       <div class="stack tight">
@@ -725,7 +783,7 @@ function viewPhrases() {
   setNav("phrases"); stopAudio();
   const all = Object.entries(S.words);
   if (!all.length) {
-    app.innerHTML = topbar() + `<div class="stack"><h1>Разговорник</h1><div class="panel stack"><b>Пока пусто.</b><div class="muted">Фразы из каждого пройденного урока попадают сюда. Повторяй их по расписанию — так они остаются в памяти надолго.</div><a class="btn primary" href="#/">Пройти первый урок</a></div></div>`;
+    app.innerHTML = topbar() + `<div class="stack"><h1>Разговорник</h1><div class="panel stack">${catArt("sleep", "cat-empty")}<b>Пока пусто.</b><div class="muted">Фразы из каждого пройденного урока попадают сюда. Повторяй их по расписанию — так они остаются в памяти надолго.</div><a class="btn primary" href="#/">Пройти первый урок</a></div></div>`;
     return;
   }
   if (reviewQ && reviewQ.length) return viewReview();
@@ -755,7 +813,7 @@ function viewReview() {
   app.innerHTML = topbar() + `<div class="stack">
     <div class="row between"><h1>Повторение</h1><span class="chip">${reviewQ.stats.n - reviewQ.length + 1} / ${reviewQ.stats.n}</span></div>
     <div class="card" id="card" tabindex="0" role="button" aria-label="Показать ответ">
-      <span class="eyebrow">${mode === "en" ? "Что это значит?" : "Скажи вслух по-английски"}</span>
+      <span class="eyebrow">${mode === "en" ? "Что это значит?" : "Скажи вслух " + P.inLang}</span>
       <div class="w">${esc(mode === "en" ? en : w.ru)}</div><div class="tr" id="back" hidden>${esc(mode === "en" ? w.ru : en)}</div>
       <span class="small muted" id="taphint">Нажми, чтобы увидеть ответ</span>
     </div>
@@ -770,7 +828,7 @@ function viewReview() {
     if (ok) { w.box = Math.min(5, w.box + 1); w.due = Date.now() + BOX_DAYS[w.box] * DAY; reviewQ.stats.ok++; reviewQ.shift(); }
     else { w.box = 0; w.due = Date.now() + 10 * 60e3; reviewQ.shift(); if (!reviewQ.retry.has(en)) { reviewQ.retry.add(en); reviewQ.push(en); } }
     save();
-    if (!reviewQ.length) { addXP(5); const st = reviewQ.stats; reviewQ = null; toast(`Готово! Вспомнил ${st.ok} из ${st.n}. +5 XP`); viewPhrases(); }
+    if (!reviewQ.length) { addXP(5); const st = reviewQ.stats; reviewQ = null; toast(`Готово! ${G("Вспомнил", "Вспомнила")} ${st.ok} из ${st.n}. +5 XP`); viewPhrases(); }
     else viewReview();
   }
 }
@@ -791,7 +849,7 @@ function viewAIWriting(id) {
   const w = WRITING_TASKS.find(x => x.id === id); if (!w) return (location.hash = "#/practice");
   app.innerHTML = topbar() + `<div class="stack"><a class="btn ghost back" href="#/practice">← Практика</a>
     <span class="eyebrow">Письмо · ${w.level}</span><h1>${esc(w.title)}</h1><div>${esc(w.task)}</div><div class="small muted">Подсказка: <i>${esc(w.hint)}</i></div>
-    <textarea class="field" id="wt" rows="7" placeholder="Пиши по-английски…" spellcheck="false"></textarea>
+    <textarea class="field" id="wt" rows="7" placeholder="Пиши ${P.inLang}…" spellcheck="false"></textarea>
     <button class="btn primary" id="wgo" type="button">Проверить</button><div id="wres" class="stack"></div></div>`;
   $("#wgo").onclick = async () => {
     const text = $("#wt").value.trim(); if (text.split(/\s+/).length < 3) { toast("Напиши хотя бы одно предложение"); return; }
@@ -813,7 +871,7 @@ function viewAIDialog(id) {
   if (!chat || chat.id !== id) chat = { id, msgs: [{ role: "assistant", content: d.start }], busy: false };
   app.innerHTML = topbar() + `<div class="stack"><a class="btn ghost back" href="#/practice">← Практика</a><h1>${esc(d.title)}</h1><div class="small muted">${esc(d.goal)}</div>
     <div class="chat" id="chat"></div>
-    <div class="composer"><textarea class="field" id="cin" rows="1" placeholder="Ответь по-английски…" spellcheck="false"></textarea><button class="iconbtn send" id="csend" type="button" aria-label="Отправить">➤</button></div></div>`;
+    <div class="composer"><textarea class="field" id="cin" rows="1" placeholder="Ответь ${P.inLang}…" spellcheck="false"></textarea><button class="iconbtn send" id="csend" type="button" aria-label="Отправить">➤</button></div></div>`;
   const box = $("#chat"), cin = $("#cin");
   const draw = () => { box.innerHTML = chat.msgs.map(m => m.role === "assistant" ? `<div class="msg bot"><div class="bubble">${esc(m.content)}</div>${m.ru ? `<div class="ru">${esc(m.ru)}</div>` : ""}</div>` : `<div class="msg me"><div class="bubble">${esc(m.content)}</div>${m.fix ? `<div class="fix">Лучше: <b>${esc(m.fix)}</b>${m.tip ? "<br>" + esc(m.tip) : ""}</div>` : ""}</div>`).join("") + (chat.busy ? `<div class="typing">Печатает…</div>` : ""); window.scrollTo({ top: document.body.scrollHeight }); };
   draw();
@@ -829,6 +887,25 @@ function viewAIDialog(id) {
 }
 
 /* ============ Профиль ============ */
+function viewChooser() {
+  document.getElementById("nav").hidden = true;
+  document.documentElement.dataset.lang = "choose";
+  app.innerHTML = `<div class="chooser">
+    <div class="brand big">Что учим?</div>
+    <div class="muted">Выбери курс. Прогресс у каждого свой, переключиться можно в профиле.</div>
+    <button class="lang-card en" data-lang="en" type="button">
+      <span class="lang-ic">${ic("plane")}</span>
+      <span><b>English</b><span>Английский для путешествий · с нуля</span></span>
+    </button>
+    <button class="lang-card es" data-lang="es" type="button">
+      <span class="lang-cat">${(() => { const L0 = LANG; LANG = "es"; const c = catArt("happy"); LANG = L0; return c; })()}</span>
+      <span><b>Español</b><span>Испанский с нуля · грамматика и разговор</span></span>
+    </button>
+  </div>`;
+  app.querySelectorAll("[data-lang]").forEach(b => b.onclick = () => switchLang(b.dataset.lang));
+}
+function switchLang(l) { lsSet("stupeni.lang", l); location.replace(location.pathname + "?lang=" + l + location.hash.replace(/^#\/(audio|phrases|practice).*$/, "")); }
+
 function viewProfile() {
   setNav("profile"); stopAudio();
   const lessons = ITEMS.filter(x => x.kind === "lesson"), tests = ITEMS.filter(x => x.kind === "test");
@@ -838,9 +915,10 @@ function viewProfile() {
       <div class="stat"><b>${lessons.filter(isDone).length}/${lessons.length}</b><span class="small muted">уроков</span></div>
       <div class="stat"><b>${tests.filter(isDone).length}/${tests.length}</b><span class="small muted">контрольных сдано</span></div>
       <div class="stat"><b>${Object.keys(S.words).length}</b><span class="small muted">фраз в разговорнике</span></div>
-      <div class="stat"><b>${TRACKS.filter(t => S.audio[t.id]).length}/${TRACKS.length}</b><span class="small muted">аудио прослушано</span></div>
+      <div class="stat"><b>${TRK.filter(t => S.audio[t.id]).length}/${TRK.length}</b><span class="small muted">аудио прослушано</span></div>
     </div>
     ${tests.some(t => S.tests[t.id] != null) ? `<div class="panel"><h3>Контрольные</h3>${tests.map(t => `<div class="secrow"><span>Блок ${t.bi + 1}</span><span class="bar"><i style="width:${S.tests[t.id] || 0}%"></i></span><b>${S.tests[t.id] != null ? S.tests[t.id] + "%" : "—"}</b></div>`).join("")}</div>` : ""}
+    <div class="panel row between"><span><span class="small muted">Курс</span><br><b>${LANG === "es" ? "Español · Pasitos" : "English · Ступени"}</b></span><button class="btn sm" id="s-lang" type="button">${ic("globe")} ${LANG === "es" ? "English" : "Español"}</button></div>
     <h2>Настройки</h2>
     <div class="panel settings">
       <div class="setting"><label for="s-goal">Цель на день</label><select id="s-goal">${[20, 30, 50, 80].map(v => `<option value="${v}" ${S.settings.goal == v ? "selected" : ""}>${v} XP</option>`).join("")}</select></div>
@@ -850,13 +928,14 @@ function viewProfile() {
       <div class="setting"><span>Открыть все уроки</span><button class="switch" role="switch" type="button" id="s-unlock" aria-checked="${S.settings.unlockAll}" aria-label="Открыть все уроки"></button></div>
       <div class="setting"><label for="s-theme">Тема</label><select id="s-theme"><option value="auto">Как в системе</option><option value="light" ${S.settings.theme === "light" ? "selected" : ""}>Светлая</option><option value="dark" ${S.settings.theme === "dark" ? "selected" : ""}>Тёмная</option></select></div>
     </div>
-    ${TTS ? `<button class="btn" type="button" data-say="Hello! This is how I sound. Let's practise English for your next trip.">🔊 Проверить голос</button>` : ""}
+    ${TTS ? `<button class="btn" type="button" data-say="${esc(P.say.voice)}">🔊 Проверить голос</button>` : ""}
     <div class="panel stack"><b>Сбросить прогресс</b><div class="small muted">Удалит уроки, контрольные, опыт и разговорник на этом устройстве.</div><div class="row" id="reset-box"><button class="btn bad sm" id="reset" type="button">Сбросить</button></div></div>
     <div class="small muted">Прогресс хранится на этом устройстве.</div></div>`;
+  $("#s-lang").onclick = () => switchLang(LANG === "es" ? "en" : "es");
   $("#s-goal").onchange = e => { S.settings.goal = +e.target.value; save(); };
   if (TTS) {
-    $("#s-rate").onchange = e => { S.settings.rate = +e.target.value; save(); speak("This is the new speed."); };
-    $("#s-voice").onchange = e => { S.settings.voice = e.target.value; save(); speak("Hello, nice to meet you."); };
+    $("#s-rate").onchange = e => { S.settings.rate = +e.target.value; save(); speak(P.say.speed); };
+    $("#s-voice").onchange = e => { S.settings.voice = e.target.value; save(); speak(P.say.hello); };
     $("#s-auto").onclick = e => { S.settings.autoSpeak = !S.settings.autoSpeak; e.target.setAttribute("aria-checked", S.settings.autoSpeak); save(); };
   }
   $("#s-unlock").onclick = e => { S.settings.unlockAll = !S.settings.unlockAll; e.target.setAttribute("aria-checked", S.settings.unlockAll); save(); };
@@ -871,6 +950,7 @@ function viewProfile() {
 /* ============ Роутер ============ */
 function route() {
   if (L) return;
+  if (!LANG) return viewChooser();
   const h = location.hash.replace(/^#\/?/, "").split("/");
   window.scrollTo(0, 0);
   if (h[0] === "audio" && h[1]) viewTrack(h[1]);
