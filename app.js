@@ -4,6 +4,7 @@
 const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp : null;
 if (tg) { tg.ready(); tg.expand(); }
 const $ = (s, r = document) => r.querySelector(s);
+const fmt = s => esc(s).replace(/&lt;code&gt;([\s\S]*?)&lt;\/code&gt;/g, "<code>$1</code>");
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -17,22 +18,29 @@ function plural(n, one, few, many) { const a = n % 10, b = n % 100; return a ===
 const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 let LANG = new URLSearchParams(location.search).get("lang") || lsGet("stupeni.lang");
-if (LANG !== "en" && LANG !== "es") LANG = null;
+if (!["base", "en", "it", "es"].includes(LANG)) LANG = null;
 if (LANG) lsSet("stupeni.lang", LANG);
+const EN_VOICE = { tts: /^en[-_]/i, ttsPref: /en[-_](US|GB)/i, ttsNames: /Google|Samantha|Natural|Aria|Jenny|Daniel|Karen/i, ttsAlt: /en[-_](GB|US|AU|IE)/i, ttsDefault: "en-US", sr: "en-US" };
 const PACKS = {
+  base: { key: "stupeni.base.v1", course: window.COURSE_BASE, tracks: window.TRACKS_BASE, levels: window.TRACK_LEVELS_BASE, ...EN_VOICE,
+        brand: "Ступени", code: "EN", inLang: "по-английски", toLang: "на английский", passHead: "Посадочный талон", fem: false, theme: "#2b3d20", css: "en", name: "English · Основа",
+        say: { voice: "Hello! This is how I sound. Let's learn English together.", speed: "This is the new speed.", hello: "Hello, nice to meet you." } },
+  it: { key: "stupeni.it.v1", course: window.COURSE_IT, tracks: window.TRACKS_IT, levels: window.TRACK_LEVELS_IT, ...EN_VOICE,
+        brand: "~/stupeni", code: "EN", inLang: "по-английски", toLang: "на английский", passHead: "", fem: false, theme: "#14111f", css: "it", name: "English · IT",
+        say: { voice: "Hello, world! This is how I sound. Let's learn English for developers.", speed: "This is the new speed.", hello: "Hi! Welcome to the team." } },
   en: { key: "stupeni.travel.v1", course: window.COURSE, tracks: window.TRACKS, levels: window.TRACK_LEVELS,
         tts: /^en[-_]/i, ttsPref: /en[-_](US|GB)/i, ttsNames: /Google|Samantha|Natural|Aria|Jenny|Daniel|Karen/i, ttsAlt: /en[-_](GB|US|AU|IE)/i, ttsDefault: "en-US", sr: "en-US",
-        brand: "Ступени", code: "EN", inLang: "по-английски", toLang: "на английский", passHead: "Посадочный талон", fem: false, theme: "#2b3d20",
+        brand: "Ступени", code: "EN", inLang: "по-английски", toLang: "на английский", passHead: "Посадочный талон", fem: false, theme: "#2b3d20", css: "en", name: "English · Путешествия",
         say: { voice: "Hello! This is how I sound. Let's practise English for your next trip.", speed: "This is the new speed.", hello: "Hello, nice to meet you." } },
   es: { key: "pasitos.es.v1", course: window.COURSE_ES, tracks: window.TRACKS_ES, levels: window.TRACK_LEVELS_ES,
         tts: /^es[-_]/i, ttsPref: /es[-_](ES|MX|US)/i, ttsNames: /Google|Monica|Mónica|Paulina|Natural|Elvira|Helena|Lucia|Lucía/i, ttsAlt: /es[-_]/i, ttsDefault: "es-ES", sr: "es-ES",
-        brand: "Pasitos", code: "ES", inLang: "по-испански", toLang: "на испанский", passHead: "Mi cuaderno", fem: true, theme: "#f3b6c8",
+        brand: "Pasitos", code: "ES", inLang: "по-испански", toLang: "на испанский", passHead: "Mi cuaderno", fem: true, theme: "#f3b6c8", css: "es", name: "Español · Pasitos",
         say: { voice: "¡Hola! Así sueno yo. Vamos a aprender español juntas.", speed: "Esta es la nueva velocidad.", hello: "Hola, encantada de conocerte." } }
 };
 const P = PACKS[LANG || "en"];
 const CRS = P.course, TRK = P.tracks, TLV = P.levels;
 const G = (m, f) => P.fem ? f : m;
-document.documentElement.dataset.lang = LANG || "en";
+document.documentElement.dataset.lang = P.css;
 { const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = P.theme; }
 
 /* ---------- Состояние ---------- */
@@ -226,6 +234,17 @@ const ICONS = {
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   cat: '<path d="M5 20v-9L4 4l5 4h6l5-4-1 7v9z"/><path d="M9 13h.01M15 13h.01M11 16h2"/>',
   paw: '<circle cx="6.5" cy="10.5" r="1.8"/><circle cx="10.5" cy="6.5" r="1.8"/><circle cx="15.5" cy="6.8" r="1.8"/><circle cx="18.5" cy="11" r="1.8"/><path d="M12 12c-3 0-6 4.5-4.5 6.5 1.3 1.7 3-.3 4.5-.3s3.2 2 4.5.3C18 16.5 15 12 12 12z"/>',
+  terminal: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M12.5 15H17"/>',
+  code: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/>',
+  keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+  alert: '<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/>',
+  doc: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+  users: '<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.6 14.3A5 5 0 0 1 21 19"/>',
+  bug: '<rect x="8" y="6" width="8" height="13" rx="4"/><path d="M12 10v9M4 10l4 2M20 10l-4 2M4 18l4-2M20 18l-4-2M9.5 3.5 11 6M14.5 3.5 13 6"/>',
+  branch: '<circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="7" r="2"/><path d="M6 7v10M18 9c0 5-6 4-12 8"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+  briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5h6v2M3 13h18"/>',
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z"/>'
 };
 const LESSON_ICON = { l1: "hand", l2: "passport", l3: "coins", l4: "plane", l5: "bus", l6: "compass", l7: "bed", l8: "cup", l9: "bag", l10: "chat", l11: "camera", l12: "aid" };
@@ -235,10 +254,22 @@ const ic = (name, cls = "ic") => `<svg class="${cls}" viewBox="0 0 24 24" fill="
 const app = $("#app");
 function toast(t) { const d = document.createElement("div"); d.className = "toast"; d.textContent = t; document.body.append(d); setTimeout(() => d.remove(), 2400); }
 function topbar() {
-  return `<div class="top"><div class="brand">${P.brand}<span>.</span></div>
+  return `<div class="top"><div class="brand">${LANG === "it" ? `${P.brand}<i class="caret"></i>` : `${P.brand}<span>.</span>`}</div>
   <div class="stats"><span class="chip streak" title="Дней подряд">${ic("flame")} ${streakNow()}</span><span class="chip" title="Опыт">${ic("bolt")} ${S.xp}</span></div></div>`;
 }
+function duckArt(mood = "happy", cls = "") {
+  const eye = mood === "sleep" ? '<path class="cat-line" d="M78 44q4 3.5 8 0"/>' : '<circle cx="82" cy="43" r="3.6" class="cat-dot"/><circle cx="83.2" cy="41.8" r="1.1" class="cat-shine"/>';
+  const shape = '<ellipse cx="56" cy="84" rx="40" ry="24"/><circle cx="76" cy="47" r="22"/><path d="M19 76 5 58l24 8z"/>';
+  return `<svg class="cat duck ${cls}" viewBox="0 0 120 120" aria-hidden="true">
+    <g class="duck-o">${shape}</g><g class="duck-f">${shape}</g>
+    <path class="duck-beak" d="M95 46c9-2 18 0 18 5s-9 8-19 4z"/>
+    <path class="cat-line" d="M36 84q16 15 36 2"/>${eye}
+    <circle class="cat-cheek" cx="87" cy="56" r="4"/>
+    ${mood === "sleep" ? '<text x="96" y="24" class="cat-z">z</text><text x="106" y="13" class="cat-z small">z</text>' : ""}
+  </svg>`;
+}
 function catArt(mood = "happy", cls = "") {
+  if (LANG === "it") return duckArt(mood, cls);
   if (LANG !== "es") return "";
   const eyes = mood === "sleep" ? '<path d="M44 55q5 4 10 0M66 55q5 4 10 0"/>'
     : mood === "open" ? '<circle cx="49" cy="53" r="3.4" class="cat-dot"/><circle cx="71" cy="53" r="3.4" class="cat-dot"/><circle cx="50.2" cy="51.8" r="1" class="cat-shine"/><circle cx="72.2" cy="51.8" r="1" class="cat-shine"/>'
@@ -255,10 +286,42 @@ function catArt(mood = "happy", cls = "") {
     ${mood === "sleep" ? '<text x="88" y="30" class="cat-z">z</text><text x="98" y="18" class="cat-z small">z</text>' : ""}
   </svg>`;
 }
-function stampHTML(top, big, bottom, cls = "") { return `<div class="stamp ${cls}"><span>${esc(top)}</span><b>${esc(big)}</b><span>${esc(bottom)}</span></div>`; }
+function stampHTML(top, big, bottom, cls = "") {
+  if (LANG === "it") return `<div class="shield ${cls}"><span>${esc(top)}</span><b>${esc(big)}</b></div>`;
+  return `<div class="stamp ${cls}"><span>${esc(top)}</span><b>${esc(big)}</b><span>${esc(bottom)}</span></div>`; }
 function setNav(tab) { document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("on", a.dataset.tab === tab)); }
 
 /* ============ Курс ============ */
+const gitHash = id => { let h = 2166136261; for (const c of id + ":stupeni") { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return h.toString(16).padStart(8, "0").slice(0, 7); };
+const itSlug = it => it.kind === "test" ? `review-${it.bi + 1}` : `lesson-${String(it.no).padStart(2, "0")}`;
+function termHero(nx, doneL, total, g, started) {
+  const log = ITEMS.filter(x => isDone(x)).slice(-3).reverse();
+  const promptLn = cmd => `<div class="ln"><span class="t-pr">➜</span> <span class="t-cy">english-it</span> <span class="t-pu">git:(</span><span class="t-or">main</span><span class="t-pu">)</span> ${cmd}</div>`;
+  return `<section class="term">
+    <div class="term-bar"><span class="dots"><i></i><i></i><i></i></span><span class="term-title">~/english/it — zsh</span></div>
+    <div class="term-body">
+      ${promptLn("git log --oneline -3")}
+      ${log.length ? log.map(it => `<div class="ln"><span class="t-or">${gitHash(it.id)}</span> <span class="t-gr">✓</span> ${esc(itSlug(it))}: ${esc(it.title)}</div>`).join("") : `<div class="ln t-dim">fatal: your current branch 'main' does not have any commits yet</div>`}
+      ${promptLn(nx ? `npm run <span class="t-gr">${itSlug(nx)}</span><i class="caret"></i>` : `echo "all sprints done" <i class="caret"></i>`)}
+      <div class="term-next"><span class="t-cm">// ${nx ? (nx.kind === "test" ? `Sprint ${nx.bi + 1} · code review` : `Sprint ${nx.bi + 1} · урок ${nx.no}`) : "курс пройден"}</span><h1>${nx ? esc(nx.title) : "Все спринты закрыты!"}</h1></div>
+    </div>
+    <div class="term-status"><span>⎇ main</span><span>${doneL}/${total} lessons</span><span>${xpToday()}/${S.settings.goal} XP</span><span>${ic("flame")} ${streakNow()}d</span></div>
+    <div class="term-progress" title="Цель дня"><i style="width:${g}%"></i></div>
+    <div class="term-actions">${nx ? `<button class="btn run wide" data-go="${nx.id}" type="button">▶ ${started ? "Run next" : "Run first lesson"}</button>` : `<a class="btn run wide" href="#/audio">▶ Open audio</a>`}</div>
+  </section>`;
+}
+function branchCard() {
+  if (LANG !== "base") return "";
+  const ready = (S.tests.bt2 || 0) >= PASS;
+  return `<section class="panel branches">
+    <span class="eyebrow">${ready ? "Ветки открыты" : "Дальше — две ветки"}</span>
+    <div class="small muted">${ready ? "Базы уже хватает. Продолжай «Основу» и параллельно выбирай направление:" : "После второго блока «Основы» базы хватит, чтобы идти в ветку. Можно заглянуть и раньше:"}</div>
+    <div class="branch-row">
+      <button class="branch travel" data-branch="en" type="button">${ic("plane")}<b>Путешествия</b><span>аэропорт, отель, кафе, small talk</span></button>
+      <button class="branch it" data-branch="it" type="button">${ic("terminal")}<b>IT</b><span>код, ошибки, git, код-ревью</span></button>
+    </div>
+  </section>`;
+}
 function viewCourse() {
   setNav("course"); stopAudio();
   const nx = nextItem();
@@ -267,7 +330,7 @@ function viewCourse() {
   const g = Math.min(100, Math.round(xpToday() / S.settings.goal * 100));
   const code = !nx ? "FIN" : nx.kind === "test" ? `T${nx.bi + 1}` : `L${String(nx.no).padStart(2, "0")}`;
   const started = Object.keys(S.done).length > 0;
-  let html = topbar() + `<div class="stack">
+  let html = topbar() + `<div class="stack">${LANG === "it" ? termHero(nx, doneL, lessons.length, g, started) : `
   <section class="pass">
     <div class="pass-main">
       <div class="pass-head"><span>${P.passHead}</span><span class="mono">${code}</span></div>
@@ -288,14 +351,14 @@ function viewCourse() {
       <div class="goalbar" title="Цель дня"><i style="width:${g}%"></i></div>
       ${nx ? `<button class="btn cherry wide" data-go="${nx.id}" type="button">${LANG === "es" ? (started ? "¡Seguimos!" : "¡Empezamos!") : (started ? "Продолжить путь" : "На посадку")}</button>` : `<a class="btn cherry wide" href="#/audio">К аудио</a>`}
     </div>
-  </section>`;
+  </section>`}${branchCard()}`;
   const due = dueWords().length;
   if (due) html += `<a class="panel row between" href="#/phrases"><span><b>${due}</b> ${plural(due, "фраза ждёт", "фразы ждут", "фраз ждут")} повторения</span><span class="btn sm primary">Повторить</span></a>`;
   html += `<div id="ai-slot"></div>`;
   CRS.forEach((b, bi) => {
     const its = ITEMS.filter(x => x.bi === bi);
     const doneN = its.filter(isDone).length;
-    html += `<section class="leg"><div class="leg-head"><div><span class="eyebrow">Блок ${bi + 1}</span><h2>${esc(b.title)}</h2><div class="small muted">${esc(b.note)}</div></div><span class="leg-count">${doneN}/${its.length}</span></div><div class="route-list">`;
+    html += `<section class="leg"><div class="leg-head"><div><span class="eyebrow">${LANG === "it" ? `sprint-${bi + 1}/` : `Блок ${bi + 1}`}</span><h2>${esc(b.title)}</h2><div class="small muted">${esc(b.note)}</div></div><span class="leg-count">${doneN}/${its.length}</span></div><div class="route-list">`;
     its.forEach(it => {
       const i = ITEMS.indexOf(it), open = isOpen(i), done = isDone(it), cur = nx && nx.id === it.id;
       const st = `${done ? "done" : ""} ${cur ? "current" : ""} ${open ? "" : "locked"}`;
@@ -303,14 +366,14 @@ function viewCourse() {
       if (it.kind === "lesson") {
         html += `<button class="stop ${st}" ${attr} type="button">
           <span class="node">${done ? ic(LANG === "es" ? "paw" : "check") : open ? ic(it.icon || LESSON_ICON[it.id] || "compass") : ic("lock")}</span>
-          <span class="stop-body"><span class="lno">Урок ${it.no}</span><span class="ttl">${esc(it.title)}</span><span class="sub">${esc(it.goals[0])}</span></span>
-          <span class="score">${done ? S.done[it.id] + "%" : cur ? "сейчас" : ""}</span></button>`;
+          <span class="stop-body"><span class="lno">${LANG === "it" ? `${itSlug(it).replace("-", "_")}.md` : `Урок ${it.no}`}</span><span class="ttl">${esc(it.title)}</span><span class="sub">${esc(it.goals[0])}</span></span>
+          <span class="score">${done ? S.done[it.id] + "%" : cur ? (LANG === "it" ? "HEAD" : "сейчас") : ""}</span></button>`;
       } else {
         const sc = S.tests[it.id];
         html += `<button class="stop checkpoint ${st}" ${attr} type="button">
-          <span class="node">${open ? ic("stamp") : ic("lock")}</span>
-          <span class="stop-body"><span class="lno">Контроль</span><span class="ttl">${esc(it.title.replace(/^Контрольная: /, "Контрольная: "))}</span><span class="sub">Перевод · фразы · аудио · письмо</span></span>
-          ${done ? stampHTML("сдано", sc + "%", "блок " + (bi + 1), "mini") : `<span class="score">${sc != null ? sc + "%" : ""}</span>`}</button>`;
+          <span class="node">${open ? ic(LANG === "it" ? "branch" : "stamp") : ic("lock")}</span>
+          <span class="stop-body"><span class="lno">${LANG === "it" ? `pull request #${bi + 1}` : "Контроль"}</span><span class="ttl">${esc(it.title.replace(/^Контрольная: /, "Контрольная: "))}</span><span class="sub">Перевод · фразы · аудио · письмо</span></span>
+          ${done ? stampHTML(LANG === "it" ? "merged" : "сдано", sc + "%", "блок " + (bi + 1), "mini") : `<span class="score">${sc != null ? sc + "%" : ""}</span>`}</button>`;
       }
     });
     html += `</div></section>`;
@@ -318,6 +381,7 @@ function viewCourse() {
   app.innerHTML = html + `</div>`;
   app.querySelectorAll("[data-go]").forEach(b => b.onclick = () => startItem(b.dataset.go));
   app.querySelectorAll("[data-locked]").forEach(b => b.onclick = () => toast("Сначала пройди предыдущую остановку"));
+  app.querySelectorAll("[data-branch]").forEach(b => b.onclick = () => switchLang(b.dataset.branch));
   if (LANG === "en") aiStatus().then(ok => { const s = $("#ai-slot"); if (ok && s) s.innerHTML = `<a class="panel row between" href="#/practice"><span><b>Практика с ИИ</b><br><span class="small muted">Свободный разговор и проверка текстов</span></span><span class="btn sm">Открыть</span></a>`; });
 }
 
@@ -385,7 +449,7 @@ function verdict({ ok, typo, accent, correct, why, noRequeue, extraHTML }) {
   }
   const requeue = !ok && !noRequeue && !L.test && first;
   if (requeue) { L.retried.add(s._i); L.queue.push(s); }
-  pfin.innerHTML = `<div class="verdict">${ok ? (accent ? "Верно! Только проверь ударения" : typo ? "Верно, но есть опечатка" : pick(LANG === "es" ? ["¡Muy bien!", "¡Perfecto!", "¡Genial!", "¡Eso es!"] : ["Отлично!", "Верно!", "Так держать!", "Супер!"])) : "Не совсем"}</div>
+  pfin.innerHTML = `<div class="verdict">${ok ? (accent ? "Верно! Только проверь ударения" : typo ? "Верно, но есть опечатка" : pick(LANG === "es" ? ["¡Muy bien!", "¡Perfecto!", "¡Genial!", "¡Eso es!"] : LANG === "it" ? ["✔ Passed", "✔ LGTM!", "✔ Build green", "✔ Merged"] : ["Отлично!", "Верно!", "Так держать!", "Супер!"])) : (LANG === "it" ? "✖ Test failed" : "Не совсем")}</div>
     ${correct && (!ok || typo) ? `<div class="answer">Правильно: <b>${esc(correct)}</b></div>` : ""}
     ${why ? `<div class="small">${esc(why)}</div>` : ""}${extraHTML || ""}
     ${requeue ? `<div class="small muted">Это задание повторится в конце урока.</div>` : ""}
@@ -458,7 +522,7 @@ const RENDER = {
     const order = shuffle(s.options.map((o, i) => i));
     pin.innerHTML = `<span class="qlabel">${s.audio ? "Послушай" : "Выбери ответ"}</span>
       ${s.audio ? `<div class="listen-box"><button class="bigplay" id="pl" type="button" aria-label="Слушать">🔊</button><button class="slowplay" id="pls" type="button" aria-label="Медленно">🐢</button></div>` : ""}
-      <div class="prompt">${esc(s.q)}</div><div class="options">${order.map(i => `<button class="opt" data-i="${i}" type="button">${esc(s.options[i])}</button>`).join("")}</div>`;
+      <div class="prompt">${fmt(s.q)}</div><div class="options">${order.map(i => `<button class="opt" data-i="${i}" type="button">${fmt(s.options[i])}</button>`).join("")}</div>`;
     if (s.audio) { $("#pl").onclick = () => speak(s.audio); $("#pls").onclick = () => speak(s.audio, true); setTimeout(() => speak(s.audio), 350); }
     let sel = null;
     const en = footCheck(pfin, () => {
@@ -681,7 +745,7 @@ function finishLesson() {
   addXP(xp); haptic("success");
   const i = ITEMS.indexOf(it), nx = ITEMS[i + 1];
   player.innerHTML = `<div class="p-body"><div class="p-in result">
-    <div class="result-art">${catArt(pct >= 70 ? "happy" : "open", "cat-result")}${stampHTML(LANG === "es" ? (pct >= 70 ? "¡muy bien!" : "¡sigue así!") : (first ? "пройдено" : "повторено"), pct + "%", (LANG === "es" ? "lección " : "урок ") + it.no, "big-stamp" + (pct < 70 ? " soft" : ""))}</div><h1>${esc(it.title)}</h1>
+    <div class="result-art">${catArt(pct >= 70 ? "happy" : "open", "cat-result")}${stampHTML(LANG === "es" ? (pct >= 70 ? "¡muy bien!" : "¡sigue así!") : LANG === "it" ? "tests passed" : (first ? "пройдено" : "повторено"), pct + "%", (LANG === "es" ? "lección " : "урок ") + it.no, "big-stamp" + (pct < 70 ? " soft" : ""))}</div><h1>${esc(it.title)}</h1>
     <div class="muted">${pct >= 90 ? "Превосходно! Почти без ошибок." : pct >= 70 ? "Хороший результат. Ошибки повторили в конце — так они лучше запоминаются." : "Неплохо для начала. Пройди урок ещё раз завтра — станет легче."}</div>
     <div class="tiles3"><div class="t3"><b>+${xp}</b><span class="small muted">опыта</span></div><div class="t3"><b>${added}</b><span class="small muted">фраз в разговорник</span></div><div class="t3"><b>${streakNow()}</b><span class="small muted">${plural(streakNow(), "день", "дня", "дней")} подряд</span></div></div>
     <div class="panel left"><h3>Итоги урока</h3><ul class="goals done-list">${it.summary.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
@@ -702,18 +766,20 @@ function finishTest() {
   const i = ITEMS.indexOf(it), nx = ITEMS[i + 1];
   const rows = it.sections.map(sec => { const st = L.sec[sec.title] || { ok: 0, n: 0 }; return `<div class="secrow"><span>${esc(sec.title)}</span><span class="bar"><i style="width:${st.n ? st.ok / st.n * 100 : 0}%"></i></span><b>${st.ok}/${st.n}</b></div>`; }).join("");
   player.innerHTML = `<div class="p-body"><div class="p-in result">
-    ${passed ? `<div class="result-art">${catArt("happy", "cat-result")}${stampHTML(LANG === "es" ? "¡aprobado!" : "контроль пройден", pct + "%", "блок " + (it.bi + 1), "big-stamp")}</div>` : `${catArt("sleep", "cat-result")}<span class="eyebrow">Блок ${it.bi + 1} · Контрольная</span><div class="big fail">${pct}%</div>`}
+    ${passed ? `<div class="result-art">${catArt("happy", "cat-result")}${stampHTML(LANG === "es" ? "¡aprobado!" : LANG === "it" ? "PR merged" : "контроль пройден", pct + "%", "блок " + (it.bi + 1), "big-stamp")}</div>` : `${catArt("sleep", "cat-result")}<span class="eyebrow">Блок ${it.bi + 1} · Контрольная</span><div class="big fail">${pct}%</div>`}
     <h1>${passed ? (nx ? `Блок ${it.bi + 1} пройден!` : "Курс пройден!") : "Пока не хватило"}</h1>
-    <div class="muted">${passed ? (nx ? `Открыт блок ${it.bi + 2}: «${esc(nx.block.title)}».` : "Ты прошёл весь курс. Теперь — в путешествие!") : `Нужно ${PASS}%. Повтори уроки блока и попробуй снова — пересдавать можно сколько угодно.`}</div>
+    <div class="muted">${passed ? (nx ? `Открыт блок ${it.bi + 2}: «${esc(nx.block.title)}».` : LANG === "base" ? "База готова. Выбирай ветку: путешествия или IT." : LANG === "it" ? "Все спринты закрыты. Можно идти на собеседование!" : "Ты прошёл весь курс. Теперь — в путешествие!") : `Нужно ${PASS}%. Повтори уроки блока и попробуй снова — пересдавать можно сколько угодно.`}</div>
     <div class="panel left"><h3>По разделам</h3>${rows}</div>
     <div class="stack wide-stack">
       ${passed && nx ? `<button class="btn primary wide" id="rnext" type="button">Начать блок ${it.bi + 2}</button>` : ""}
+      ${passed && LANG === "base" && (it.id === "bt2" || !nx) ? `<div class="branch-row"><button class="branch travel" data-branch="en" type="button">${ic("plane")}<b>Путешествия</b></button><button class="branch it" data-branch="it" type="button">${ic("terminal")}<b>IT</b></button></div>` : ""}
       ${!passed ? `<button class="btn primary wide" id="retry" type="button">Пересдать</button>` : ""}
       <button class="btn wide" id="rhome" type="button">К списку уроков</button>
     </div></div></div>`;
   $("#rhome").onclick = closePlayer;
   if (passed && nx) $("#rnext").onclick = () => { closePlayer(); startItem(nx.id); };
   if (!passed) $("#retry").onclick = () => { closePlayer(); startItem(it.id); };
+  player.querySelectorAll("[data-branch]").forEach(b => b.onclick = () => switchLang(b.dataset.branch));
 }
 
 /* ============ Аудио ============ */
@@ -890,17 +956,34 @@ function viewAIDialog(id) {
 function viewChooser() {
   document.getElementById("nav").hidden = true;
   document.documentElement.dataset.lang = "choose";
+  const prog = (key, n) => { try { const st = JSON.parse(localStorage.getItem(key)); const d = st ? Object.keys(st.done || {}).length : 0; return d ? `<em>${d}/${n}</em>` : ""; } catch (e) { return ""; } };
+  const count = c => (c || []).reduce((n, b) => n + b.lessons.length, 0);
+  const asLang = (l, f) => { const L0 = LANG; LANG = l; const r = f(); LANG = L0; return r; };
   app.innerHTML = `<div class="chooser">
     <div class="brand big">Что учим?</div>
-    <div class="muted">Выбери курс. Прогресс у каждого свой, переключиться можно в профиле.</div>
-    <button class="lang-card en" data-lang="en" type="button">
-      <span class="lang-ic">${ic("plane")}</span>
-      <span><b>English</b><span>Английский для путешествий · с нуля</span></span>
-    </button>
-    <button class="lang-card es" data-lang="es" type="button">
-      <span class="lang-cat">${(() => { const L0 = LANG; LANG = "es"; const c = catArt("happy"); LANG = L0; return c; })()}</span>
-      <span><b>Español</b><span>Испанский с нуля · грамматика и разговор</span></span>
-    </button>
+    <div class="muted">Прогресс у каждого курса свой. Сменить курс можно в профиле.</div>
+    <div class="ch-group"><span class="eyebrow">English</span>
+      <button class="lang-card base" data-lang="base" type="button">
+        <span class="lang-ic">${ic("book")}</span>
+        <span><b>Основа ${prog("stupeni.base.v1", count(window.COURSE_BASE))}</b><span>С нуля: грамматика и базовая разговорная речь. Начни отсюда.</span></span>
+      </button>
+      <div class="ch-branches">
+        <button class="lang-card en" data-lang="en" type="button">
+          <span class="lang-ic">${ic("plane")}</span>
+          <span><b>Путешествия ${prog("stupeni.travel.v1", count(window.COURSE))}</b><span>Аэропорт, отель, кафе, small talk</span></span>
+        </button>
+        <button class="lang-card it" data-lang="it" type="button">
+          <span class="lang-ic">${asLang("it", () => duckArt("happy"))}</span>
+          <span><b>IT ${prog("stupeni.it.v1", count(window.COURSE_IT))}</b><span>Для программистов: код, ошибки, git, код-ревью</span></span>
+        </button>
+      </div>
+    </div>
+    <div class="ch-group"><span class="eyebrow">Español</span>
+      <button class="lang-card es" data-lang="es" type="button">
+        <span class="lang-cat">${asLang("es", () => catArt("happy"))}</span>
+        <span><b>Español ${prog("pasitos.es.v1", count(window.COURSE_ES))}</b><span>Испанский с нуля · грамматика и разговор</span></span>
+      </button>
+    </div>
   </div>`;
   app.querySelectorAll("[data-lang]").forEach(b => b.onclick = () => switchLang(b.dataset.lang));
 }
@@ -918,7 +1001,7 @@ function viewProfile() {
       <div class="stat"><b>${TRK.filter(t => S.audio[t.id]).length}/${TRK.length}</b><span class="small muted">аудио прослушано</span></div>
     </div>
     ${tests.some(t => S.tests[t.id] != null) ? `<div class="panel"><h3>Контрольные</h3>${tests.map(t => `<div class="secrow"><span>Блок ${t.bi + 1}</span><span class="bar"><i style="width:${S.tests[t.id] || 0}%"></i></span><b>${S.tests[t.id] != null ? S.tests[t.id] + "%" : "—"}</b></div>`).join("")}</div>` : ""}
-    <div class="panel row between"><span><span class="small muted">Курс</span><br><b>${LANG === "es" ? "Español · Pasitos" : "English · Ступени"}</b></span><button class="btn sm" id="s-lang" type="button">${ic("globe")} ${LANG === "es" ? "English" : "Español"}</button></div>
+    <div class="panel row between"><span><span class="small muted">Курс</span><br><b>${P.name}</b></span><button class="btn sm" id="s-lang" type="button">${ic("globe")} Сменить курс</button></div>
     <h2>Настройки</h2>
     <div class="panel settings">
       <div class="setting"><label for="s-goal">Цель на день</label><select id="s-goal">${[20, 30, 50, 80].map(v => `<option value="${v}" ${S.settings.goal == v ? "selected" : ""}>${v} XP</option>`).join("")}</select></div>
@@ -931,7 +1014,7 @@ function viewProfile() {
     ${TTS ? `<button class="btn" type="button" data-say="${esc(P.say.voice)}">🔊 Проверить голос</button>` : ""}
     <div class="panel stack"><b>Сбросить прогресс</b><div class="small muted">Удалит уроки, контрольные, опыт и разговорник на этом устройстве.</div><div class="row" id="reset-box"><button class="btn bad sm" id="reset" type="button">Сбросить</button></div></div>
     <div class="small muted">Прогресс хранится на этом устройстве.</div></div>`;
-  $("#s-lang").onclick = () => switchLang(LANG === "es" ? "en" : "es");
+  $("#s-lang").onclick = () => location.replace(location.pathname + "?lang=choose");
   $("#s-goal").onchange = e => { S.settings.goal = +e.target.value; save(); };
   if (TTS) {
     $("#s-rate").onchange = e => { S.settings.rate = +e.target.value; save(); speak(P.say.speed); };
