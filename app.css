@@ -683,3 +683,140 @@ a.btn.run{color:#0d1a17}
 /* состояния ответа всегда сильнее выделения */
 .opt.sel.wrong,.opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
 .opt.sel.right,.opt.right{border-color:var(--ok);background:var(--ok-soft)}
+
+/* ================================================================
+   «Мрамор»: серо-голубой мрамор, бордо, золото — для всех английских веток
+   (Основа, Путешествия, IT). Испанский остаётся со своей темой.
+   ================================================================ */
+:root{
+  --bg:#e8ebee; --paper:#f9f8f5; --vein:rgba(120,132,148,.16); --glow:rgba(214,166,98,.16);
+  --ink:#23262c; --muted:#646c77; --line:#d4d9df;
+  --accent:#7d1628; --accent-ink:#fbf3ec; --accent-soft:#f2dfe2;
+  --cherry:#946f2b; --cherry-ink:#1f190e; --cherry-soft:#f2e9d6;
+  --gold-a:#e2c47a; --gold-b:#a9823b;
+  --mark:#ecdcb4; --mark-ink:#23262c;
+  --pass-bg:#6a1120; --pass-ink:#f7eee6; --pass-muted:#d9b9a8; --pass-line:rgba(247,238,230,.2);
+  --ok:#4c7a50; --ok-soft:#e0ebdd; --bad:#a3243a; --bad-soft:#f5e0e3;
+  --dot:transparent;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]):not([data-lang="es"]):not([data-lang="it"]){
+  --bg:#15171b; --paper:#1f2227; --vein:rgba(200,208,218,.07); --glow:rgba(214,166,98,.10);
+  --ink:#ede8df; --muted:#9da4ad; --line:#343840;
+  --accent:#b8324b; --accent-ink:#fff4f0; --accent-soft:#3b1b22;
+  --cherry:#d6b062; --cherry-ink:#1d170c; --cherry-soft:#3a3120;
+  --mark:#4a3b1d; --mark-ink:#ede8df;
+  --pass-bg:#5a0e1b; --pass-ink:#f7eee6; --pass-muted:#d0a99a; --pass-line:rgba(247,238,230,.16);
+  --ok:#93c28d; --ok-soft:#1f2f1f; --bad:#ff8698; --bad-soft:#40202a; color-scheme:dark}}
+:root[data-theme="dark"]:not([data-lang="es"]):not([data-lang="it"]){
+  --bg:#15171b; --paper:#1f2227; --vein:rgba(200,208,218,.07); --glow:rgba(214,166,98,.10);
+  --ink:#ede8df; --muted:#9da4ad; --line:#343840;
+  --accent:#b8324b; --accent-ink:#fff4f0; --accent-soft:#3b1b22;
+  --cherry:#d6b062; --cherry-ink:#1d170c; --cherry-soft:#3a3120;
+  --mark:#4a3b1d; --mark-ink:#ede8df;
+  --pass-bg:#5a0e1b; --pass-ink:#f7eee6; --pass-muted:#d0a99a; --pass-line:rgba(247,238,230,.16);
+  --ok:#93c28d; --ok-soft:#1f2f1f; --bad:#ff8698; --bad-soft:#40202a; color-scheme:dark}
+
+/* IT: та же палитра, по умолчанию тёмная (как редактор кода) */
+:root[data-lang="it"]{
+  --bg:#15171b; --paper:#1f2227; --vein:rgba(200,208,218,.07); --glow:rgba(214,166,98,.10);
+  --ink:#ede8df; --muted:#9da4ad; --line:#343840;
+  --accent:#d6b062; --accent-ink:#1d170c; --accent-soft:#3a3120;
+  --cherry:#d6b062; --cherry-ink:#1d170c; --cherry-soft:#3a3120;
+  --mark:#4a3b1d; --mark-ink:#ede8df;
+  --ok:#93c28d; --ok-soft:#1f2f1f; --bad:#ff8698; --bad-soft:#40202a;
+  --syn-purple:#e08a9b; --syn-cyan:#d6b062; --syn-orange:#e3a66a; --syn-green:#bcd3a8; --syn-pink:#e07a8c;
+  color-scheme:dark;
+}
+:root[data-lang="it"][data-theme="light"]{
+  --bg:#e8ebee; --paper:#f9f8f5; --vein:rgba(120,132,148,.16); --glow:rgba(214,166,98,.16);
+  --ink:#23262c; --muted:#646c77; --line:#d4d9df;
+  --accent:#7d1628; --accent-ink:#fbf3ec; --accent-soft:#f2dfe2;
+  --cherry:#946f2b; --cherry-ink:#1f190e; --cherry-soft:#f2e9d6;
+  --mark:#ecdcb4; --mark-ink:#23262c;
+  --ok:#4c7a50; --ok-soft:#e0ebdd; --bad:#a3243a; --bad-soft:#f5e0e3;
+  --syn-purple:#8a1d33; --syn-cyan:#8a6624; --syn-orange:#a3552a; --syn-green:#4c7a50; --syn-pink:#a3243a;
+  color-scheme:light;
+}
+
+/* мраморный фон вместо клетки и точек */
+:root:not([data-lang="es"]) body,
+[data-lang="it"] body{
+  background-color:var(--bg);
+  background-image:
+    radial-gradient(120% 70% at 105% -5%,var(--glow),transparent 60%),
+    linear-gradient(118deg,transparent 0 44%,var(--vein) 44.25%,transparent 44.9%),
+    linear-gradient(151deg,transparent 0 63%,var(--vein) 63.15%,transparent 63.6%),
+    linear-gradient(101deg,transparent 0 18%,var(--vein) 18.2%,transparent 18.7%),
+    linear-gradient(139deg,transparent 0 82%,var(--vein) 82.1%,transparent 82.5%);
+  background-size:auto;background-attachment:fixed;
+}
+
+/* золотые акценты */
+:root:not([data-lang="es"]) .btn.cherry,:root:not([data-lang="es"]) a.btn.cherry,
+.btn.run,a.btn.run{background:linear-gradient(180deg,var(--gold-a,#e2c47a),var(--gold-b,#a9823b));border-color:#a9823b;color:#1f190e;box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
+:root:not([data-lang="es"]) .pass{box-shadow:0 16px 36px -22px rgba(90,14,27,.75);border:1px solid rgba(214,176,98,.35)}
+:root:not([data-lang="es"]) .pass .goalbar i,.term-progress i{background:linear-gradient(90deg,#a9823b,#e2c47a)}
+:root:not([data-lang="es"]) .pass-path .plane{color:#e2c47a}
+:root:not([data-lang="es"]) .pass-head .mono{background:rgba(226,196,122,.18);color:#f3dfa8}
+:root:not([data-lang="es"]) .stamp{border-color:var(--cherry);color:var(--cherry)}
+:root:not([data-lang="es"]) .stamp.soft{border-color:var(--accent);color:var(--accent)}
+:root:not([data-lang="es"]) .pbar i{background:linear-gradient(90deg,var(--accent),#c9a24a)}
+:root:not([data-lang="es"]) .nav{border-top-color:var(--line)}
+
+/* терминал IT в мраморе */
+.term{background:#1b1d22;border-color:rgba(214,176,98,.3);box-shadow:0 16px 36px -22px rgba(0,0,0,.85)}
+.term-bar{background:#23262c;border-bottom-color:#33363d;color:#bfa66e}
+.dots i{background:#8e2034}.dots i:nth-child(2){background:#d6b062}.dots i:nth-child(3){background:#7d8794}
+.t-pr{color:#e07a8c}.t-cy{color:#d6b062}.t-pu{color:#9da4ad}.t-or{color:#e3a66a}.t-gr{color:#bcd3a8}.t-cm,.t-dim{color:#757c86}
+.term .caret,.caret{background:#d6b062}
+.term-next h1{color:#f7eee6}
+.term-status{background:#6a1120;color:#f7eee6}
+.term-progress{background:#2c2f35}
+
+/* бейдж «tests passed» — бордо и золото */
+.shield span{background:#6a1120;color:#f7eee6}
+.shield b{background:#c9a24a;color:#1f190e}
+.shield.big-stamp.soft b{background:#7d8794;color:#fff}
+.duck-f{fill:#e8c86a}
+
+/* выбор курса и ветки */
+:root[data-lang="choose"]{--bg:#e8ebee}
+@media (prefers-color-scheme:dark){:root[data-lang="choose"]:not([data-theme="light"]){--bg:#15171b}}
+:root[data-lang="choose"][data-theme="dark"]{--bg:#15171b}
+.lang-card.base{background:#f9f8f5;color:#23262c;border:1px solid #d4d9df}
+.lang-card.base .lang-ic{background:#7d1628;color:#f3dfa8}
+.lang-card.en,.branch.travel{background:#6a1120;color:#f7eee6}
+.lang-card.en .lang-ic{background:rgba(226,196,122,.16);color:#e2c47a}
+.branch.travel .ic{color:#e2c47a}
+.lang-card.it,.branch.it{background:#1b1d22;color:#ede8df;border:1px solid rgba(214,176,98,.3)}
+.lang-card.it .lang-ic{background:#23262c}
+.branch.it .ic{color:#d6b062}
+@media (prefers-color-scheme:dark){:root[data-lang="choose"]:not([data-theme="light"]) .lang-card.base{background:#1f2227;color:#ede8df;border-color:#343840}}
+:root[data-lang="choose"][data-theme="dark"] .lang-card.base{background:#1f2227;color:#ede8df;border-color:#343840}
+.ch-branches::before{border-color:#b49a63}
+
+/* ===== Фон — текстура мрамора (img/marble*.webp) для английских веток ===== */
+:root:not([data-lang="es"]){
+  --marble:url("img/marble.webp"); --bg:#86919d; --sheet:#eeede9;
+  --muted:#343b44; --on-bg-accent:#5a0e1b;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]):not([data-lang="es"]):not([data-lang="it"]){
+  --marble:url("img/marble-dark.webp"); --bg:#2a2e35; --sheet:#191b1f; --muted:#a3aab3; --on-bg-accent:#d6b062}}
+:root[data-theme="dark"]:not([data-lang="es"]):not([data-lang="it"]){
+  --marble:url("img/marble-dark.webp"); --bg:#2a2e35; --sheet:#191b1f; --muted:#a3aab3; --on-bg-accent:#d6b062}
+:root[data-lang="it"]{--marble:url("img/marble-dark.webp"); --bg:#2a2e35; --sheet:#191b1f; --muted:#a3aab3; --on-bg-accent:#d6b062}
+:root[data-lang="it"][data-theme="light"]{--marble:url("img/marble.webp"); --bg:#86919d; --sheet:#eeede9; --muted:#343b44; --on-bg-accent:#5a0e1b}
+
+:root:not([data-lang="es"]) body,[data-lang="it"] body{background:var(--bg);background-image:none}
+:root:not([data-lang="es"]) body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(110% 60% at 100% 0%,var(--glow),transparent 60%),var(--marble) center/cover no-repeat,var(--bg)}
+/* экраны урока — спокойный однотонный лист, чтобы ничего не отвлекало */
+:root:not([data-lang="es"]) .player{background:var(--sheet)}
+:root:not([data-lang="es"]) .p-foot{background:var(--paper)}
+/* надписи прямо на мраморе */
+:root:not([data-lang="es"]) .leg-head .eyebrow,:root:not([data-lang="es"]) .branches .eyebrow{color:var(--on-bg-accent)}
+:root:not([data-lang="es"]) .top .brand span{color:var(--on-bg-accent)}
+:root:not([data-lang="es"]) .result .stamp{border-color:var(--accent);color:var(--accent)}
+:root:not([data-lang="es"]) .checkpoint{background:color-mix(in srgb,var(--paper) 78%,transparent);border-color:color-mix(in srgb,var(--cherry) 55%,var(--line))}
+:root:not([data-lang="es"]) .checkpoint .lno{color:var(--accent)}
+[data-lang="it"] .checkpoint .lno{color:var(--syn-purple)}

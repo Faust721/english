@@ -23,14 +23,14 @@ if (LANG) lsSet("stupeni.lang", LANG);
 const EN_VOICE = { tts: /^en[-_]/i, ttsPref: /en[-_](US|GB)/i, ttsNames: /Google|Samantha|Natural|Aria|Jenny|Daniel|Karen/i, ttsAlt: /en[-_](GB|US|AU|IE)/i, ttsDefault: "en-US", sr: "en-US" };
 const PACKS = {
   base: { key: "stupeni.base.v1", course: window.COURSE_BASE, tracks: window.TRACKS_BASE, levels: window.TRACK_LEVELS_BASE, ...EN_VOICE,
-        brand: "Ступени", code: "EN", inLang: "по-английски", toLang: "на английский", passHead: "Посадочный талон", fem: false, theme: "#2b3d20", css: "en", name: "English · Основа",
+        brand: "Ступени", code: "EN", inLang: "по-английски", toLang: "на английский", passHead: "Посадочный талон", fem: false, theme: "#6a1120", css: "en", name: "English · Основа",
         say: { voice: "Hello! This is how I sound. Let's learn English together.", speed: "This is the new speed.", hello: "Hello, nice to meet you." } },
   it: { key: "stupeni.it.v1", course: window.COURSE_IT, tracks: window.TRACKS_IT, levels: window.TRACK_LEVELS_IT, ...EN_VOICE,
-        brand: "~/stupeni", code: "EN", inLang: "по-английски", toLang: "на английский", passHead: "", fem: false, theme: "#14111f", css: "it", name: "English · IT",
+        brand: "~/stupeni", code: "EN", inLang: "по-английски", toLang: "на английский", passHead: "", fem: false, theme: "#1b1d22", css: "it", name: "English · IT",
         say: { voice: "Hello, world! This is how I sound. Let's learn English for developers.", speed: "This is the new speed.", hello: "Hi! Welcome to the team." } },
   en: { key: "stupeni.travel.v1", course: window.COURSE, tracks: window.TRACKS, levels: window.TRACK_LEVELS,
         tts: /^en[-_]/i, ttsPref: /en[-_](US|GB)/i, ttsNames: /Google|Samantha|Natural|Aria|Jenny|Daniel|Karen/i, ttsAlt: /en[-_](GB|US|AU|IE)/i, ttsDefault: "en-US", sr: "en-US",
-        brand: "Ступени", code: "EN", inLang: "по-английски", toLang: "на английский", passHead: "Посадочный талон", fem: false, theme: "#2b3d20", css: "en", name: "English · Путешествия",
+        brand: "Ступени", code: "EN", inLang: "по-английски", toLang: "на английский", passHead: "Посадочный талон", fem: false, theme: "#6a1120", css: "en", name: "English · Путешествия",
         say: { voice: "Hello! This is how I sound. Let's practise English for your next trip.", speed: "This is the new speed.", hello: "Hello, nice to meet you." } },
   es: { key: "pasitos.es.v1", course: window.COURSE_ES, tracks: window.TRACKS_ES, levels: window.TRACK_LEVELS_ES,
         tts: /^es[-_]/i, ttsPref: /es[-_](ES|MX|US)/i, ttsNames: /Google|Monica|Mónica|Paulina|Natural|Elvira|Helena|Lucia|Lucía/i, ttsAlt: /es[-_]/i, ttsDefault: "es-ES", sr: "es-ES",
