@@ -712,6 +712,21 @@ const RENDER = {
     }
     advance();
   },
+  // Составь сам: ситуация по-русски → своё предложение, проверка по смыслу (re), пример ответа
+  compose(s, pin, pfin) {
+    pin.innerHTML = `<span class="qlabel">Составь предложение сам</span><div class="prompt small-prompt">${esc(s.task)}</div>
+      ${s.hint ? `<div class="small muted">Подсказка: можно использовать <i>${esc(s.hint)}</i></div>` : ""}
+      <textarea class="field" id="ci" rows="3" placeholder="Напиши ${P.inLang} полным предложением" autocomplete="off" autocapitalize="sentences" autocorrect="off" spellcheck="false"></textarea>`;
+    const ci = $("#ci");
+    const en = footCheck(pfin, () => {
+      const t = ci.value.trim(), n = t.split(/\s+/).length;
+      const ok = n >= (s.min || 2) && new RegExp(s.re).test(fold(t));
+      return { ok, why: ok ? "" : n < (s.min || 2) ? "Напиши полное предложение." : "Не хватает главного из задания — сравни с примером.",
+        extraHTML: `<div class="small">${ok ? "Можно сказать и так" : "Пример"}: <b>${esc(s.say)}</b> ${sayBtn(s.say, "btn ghost sm")}</div>` };
+    });
+    ci.oninput = () => en(ci.value.trim().length > 1);
+    setTimeout(() => ci.focus(), 60);
+  },
   write(s, pin, pfin) {
     pin.innerHTML = `<span class="qlabel">Напиши сам</span><div class="prompt small-prompt">${esc(s.task)}</div>
       <div class="small muted">Минимум ${s.min} ${plural(s.min, "слово", "слова", "слов")}. Что должно быть в тексте:</div>
